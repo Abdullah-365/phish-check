@@ -10,6 +10,8 @@ Received: from out.inbox.example (out.inbox.example. [192.0.2.80])
         by mx.phish-check.example with ESMTPS id 1b2c3d4e5f
         for <check@phish-check.example>;
         Sat, 24 Oct 2026 10:11:39 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=inbox.example; s=in1;
+        h=from:to:subject:date:message-id; bh=placeholder; b=placeholder
 From: Alex Chen <alex@inbox.example>
 To: check@phish-check.example
 Subject: Fwd: Your password expires today

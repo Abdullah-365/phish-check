@@ -25,13 +25,13 @@ export async function parseEmail(raw: RawEmail): Promise<ParsedEmail> {
     if (isOutlookMsg(bytes)) {
       const eml = msgToEml(bytes);
       if (!eml) throw new EmailParseError("This Outlook file couldn't be read. Try saving the email from Outlook again");
-      return parseAtDepth(eml, 0);
+      return parseAtDepth(eml, 0, true);
     }
   }
-  return parseAtDepth(raw, 0);
+  return parseAtDepth(raw, 0, false);
 }
 
-async function parseAtDepth(raw: RawEmail, depth: number): Promise<ParsedEmail> {
+async function parseAtDepth(raw: RawEmail, depth: number, rebuilt: boolean): Promise<ParsedEmail> {
   let email: Email;
   try {
     email = await PostalMime.parse(raw, {
@@ -57,7 +57,7 @@ async function parseAtDepth(raw: RawEmail, depth: number): Promise<ParsedEmail> 
     const content = toBytes(part.content);
     if (part.mimeType === "message/rfc822" && depth < MAX_EMBEDDED_DEPTH) {
       try {
-        embeddedMessages.push(await parseAtDepth(content, depth + 1));
+        embeddedMessages.push(await parseAtDepth(content, depth + 1, rebuilt));
         continue;
       } catch {
         // Unparseable inner message: keep it as an ordinary attachment.
@@ -88,6 +88,8 @@ async function parseAtDepth(raw: RawEmail, depth: number): Promise<ParsedEmail> 
     html: email.html ?? "",
     attachments,
     embeddedMessages,
+    raw: typeof raw === "string" ? new TextEncoder().encode(raw) : raw instanceof Uint8Array ? raw : new Uint8Array(raw),
+    rebuilt,
   };
 }
 

@@ -138,7 +138,7 @@ export function Hero({ example, busy, error, sourceRef, onInspect, onFile, onSam
           <p className="receipt">
             <i aria-hidden="true" />
             {online
-              ? "Your email never leaves this tab. Only its domains, link addresses and file fingerprints are looked up."
+              ? "Your email never leaves this tab. Only its domains, link addresses, file fingerprints and signature keys are looked up."
               : "Nothing leaves this tab: 0 bytes uploaded, nothing stored."}
           </p>
 

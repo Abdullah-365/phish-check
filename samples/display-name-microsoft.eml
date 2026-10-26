@@ -10,6 +10,8 @@ Received: from out-14.freemail.test (out-14.freemail.test. [203.0.113.14])
         by mx.inbox.example with ESMTPS id 7c8d9e0f1a
         for <alex@inbox.example>;
         Fri, 23 Oct 2026 14:02:43 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=freemail.test; s=fm1;
+        h=from:to:subject:date:message-id; bh=placeholder; b=placeholder
 From: "Microsoft 365 Admin" <it.helpdesk.notice@freemail.test>
 To: alex@inbox.example
 Subject: Your password expires today

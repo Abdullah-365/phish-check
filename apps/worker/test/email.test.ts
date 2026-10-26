@@ -99,6 +99,53 @@ describe("forward-to-check by email", () => {
     expect(sent[0]?.text).toMatch(/^phish-check verdict: Likely phishing/);
   });
 
+  it("checks the original's signature against the key its domain publishes", async () => {
+    // The original's own header vouches for a shop.test signature, but shop.test publishes no such key.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("._domainkey.")) return new Response(JSON.stringify({ Status: 3 }));
+        throw new Error("offline");
+      }),
+    );
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-24T18:00:00Z"));
+    try {
+      const original = [
+        "Received: from mail.shop.test (mail.shop.test [198.51.100.20]) by mx.inbox.example with ESMTPS; Sat, 24 Oct 2026 09:00:00 +0000",
+        "Authentication-Results: mx.inbox.example; spf=pass smtp.mailfrom=shop.test; dkim=pass header.d=shop.test; dmarc=pass header.from=shop.test",
+        "DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=shop.test; s=s1; h=from:to:subject:date; bh=placeholder; b=placeholder",
+        "From: Shop <orders@shop.test>",
+        "To: alex@inbox.example",
+        "Subject: Your order",
+        "Date: Sat, 24 Oct 2026 09:00:00 +0000",
+        "",
+        "Your order has shipped.",
+      ].join("\r\n");
+      const raw = [
+        "From: Alex Chen <alex@inbox.example>",
+        "To: check@abdullah1.dev",
+        "Subject: Fwd: Your order",
+        'Content-Type: multipart/mixed; boundary="b1"',
+        "",
+        "--b1",
+        "Content-Type: text/plain",
+        "",
+        "Is this real?",
+        "--b1",
+        "Content-Type: message/rfc822",
+        "",
+        original,
+        "--b1--",
+      ].join("\r\n");
+      const { message, sent } = inbound(raw, { from: "fwd-dkim@inbox.example" });
+      await handleEmail(message, {});
+      expect(sent[0]?.text).toContain("Its signature doesn't check out");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("explains how to forward when there's no forwarded email in the message", async () => {
     const { message, sent } = inbound(sample("legit-order-confirmation.eml"), { from: "not-a-forward@inbox.example" });
     await handleEmail(message, {});

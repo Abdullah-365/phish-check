@@ -1,13 +1,15 @@
 /**
  * Online verification. The engine decides what to look up and how to read the answers;
  * the Worker does the lookups. Only domains, link addresses without their query strings,
- * and file fingerprints are ever sent: never the email itself.
+ * file fingerprints and DKIM key names are ever sent: never the email itself.
  */
+import { authChecks, failedChecks, forgedAuthFinding } from "./auth.ts";
 import { BRANDS, FREE_MAIL } from "./brands.ts";
 import { links } from "./content.ts";
+import type { DkimKey, DkimResult, DkimSignatureInfo } from "./dkim.ts";
 import { addressDomain, belongsTo, registrable } from "./domains.ts";
 import { indicators } from "./evidence.ts";
-import type { Analysis, Finding, Severity } from "./types.ts";
+import type { Analysis, AuthResult, AuthSummary, Finding, Severity } from "./types.ts";
 import { inspectUrl, type UrlInfo } from "./urls.ts";
 import { headline, nextSteps, score } from "./verdict.ts";
 
@@ -18,6 +20,8 @@ export interface IntelRequest {
   urls: string[];
   /** SHA-256 fingerprints of attachments. */
   hashes: string[];
+  /** DKIM signatures whose public keys to fetch from DNS. Older clients don't send it. */
+  dkim?: DkimSignatureInfo[];
 }
 
 export interface DomainIntel {
@@ -45,9 +49,11 @@ export interface IntelResponse {
   sources: string[];
   /** Services that were configured but failed or timed out. */
   unavailable: string[];
+  /** The DNS records of those DKIM keys. Older Workers don't send it. */
+  dkim?: DkimKey[];
 }
 
-export const INTEL_LIMITS = { domains: 10, urls: 20, hashes: 10 };
+export const INTEL_LIMITS = { domains: 10, urls: 20, hashes: 10, dkim: 3 };
 
 /** Big brands and mailbox providers aren't worth a lookup: their age and reputation are known. */
 function worthLooking(domain: string): boolean {
@@ -104,11 +110,30 @@ function lookupUrl(info: UrlInfo, recipient: string | null): string {
   return forms.some((form) => lower.includes(form.toLowerCase())) ? `${info.url.protocol}//${info.url.host}/` : url;
 }
 
+const senderDomain = (analysis: Analysis) => (analysis.sender?.address ? registrable(addressDomain(analysis.sender.address)) : null);
+
+/**
+ * The signatures whose keys are worth fetching: those from the sender's own domain, which can
+ * prove who sent it, and those the Authentication-Results header vouches for, which can show the
+ * header is lying. For a plain forward they're the forward's own, so they say nothing.
+ */
+function signaturesToCheck(analysis: Analysis): DkimSignatureInfo[] {
+  if (!analysis.dkim || analysis.partial) return [];
+  const sender = senderDomain(analysis);
+  const claimed = new Set(analysis.dkim.claimed.map(registrable));
+  const rank = (s: DkimSignatureInfo) => (registrable(s.domain) === sender ? 0 : claimed.has(registrable(s.domain)) ? 1 : 2);
+  const seen = new Set<string>();
+  return analysis.dkim.signatures
+    .filter((s) => rank(s) < 2 && !seen.has(`${s.selector}._domainkey.${s.domain}`) && seen.add(`${s.selector}._domainkey.${s.domain}`))
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, INTEL_LIMITS.dkim);
+}
+
 /** What to ask the Worker about, for one analysis. */
 export function intelRequest(analysis: Analysis): IntelRequest {
   const domains = new Set<string>();
   const urls = new Set<string>();
-  const sender = analysis.sender?.address ? registrable(addressDomain(analysis.sender.address)) : null;
+  const sender = senderDomain(analysis);
   if (sender && sender.includes(".")) domains.add(sender);
   // Links inside attachments count too: a PDF with one link is a favourite way past link scanners.
   const hrefs = [...links(analysis.content).map((l) => l.href), ...analysis.attachments.flatMap((a) => a.links)];
@@ -123,10 +148,57 @@ export function intelRequest(analysis: Analysis): IntelRequest {
     domains: [...domains].filter(worthLooking).slice(0, INTEL_LIMITS.domains),
     urls: [...urls].slice(0, INTEL_LIMITS.urls),
     hashes: analysis.attachments.map((a) => a.sha256).slice(0, INTEL_LIMITS.hashes),
+    dkim: signaturesToCheck(analysis),
   };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
+/** Domains change their keys from time to time, so a signature only says something about a recent email. */
+const KEYS_HOLD_DAYS = 30;
+
+interface SignatureEvidence {
+  auth: AuthSummary;
+  /** Authentication findings the evidence overrides. */
+  drop: Set<string>;
+  finding: Finding | null;
+}
+
+/**
+ * What the email's DKIM signatures, verified here, say about its Authentication-Results header.
+ * A verified signature from the sender's own domain proves who sent it, whatever any header says.
+ * A pass the header vouches for whose signature doesn't verify, or whose key doesn't exist, means
+ * the email was changed after it arrived or the header was written by the sender.
+ */
+function signatureEvidence(analysis: Analysis, results: DkimResult[], now: Date): SignatureEvidence {
+  const unchanged: SignatureEvidence = { auth: analysis.auth, drop: new Set(), finding: null };
+  if (!analysis.dkim || analysis.partial || !results.length) return unchanged;
+  const sender = senderDomain(analysis);
+  if (sender && results.some((r) => r.result === "pass" && registrable(r.domain) === sender)) {
+    return { auth: { ...analysis.auth, dkim: "pass", verified: true }, drop: new Set(["auth-none"]), finding: null };
+  }
+
+  const received = analysis.receivedAt ? Date.parse(analysis.receivedAt) : NaN;
+  const recent = now.getTime() - received <= KEYS_HOLD_DAYS * DAY;
+  // A claim with no signature behind it at all was already caught offline, which is proof enough.
+  if (!recent || analysis.findings.some((f) => f.rule === "auth-forged")) return unchanged;
+  for (const claim of new Set(analysis.dkim.claimed.map(registrable))) {
+    const own = results.filter((r) => registrable(r.domain) === claim);
+    // Any genuine signature from the domain backs the claim, even one whose body changed since.
+    if (!own.length || !own.every((r) => r.result === "fail" || r.result === "no-key")) continue;
+    const first = own[0]!;
+    const demote = (result: AuthResult): AuthResult => (result === "pass" ? "unknown" : result);
+    return {
+      // The header's passes can't be believed now; any failures it records still stand.
+      auth: { ...analysis.auth, spf: demote(analysis.auth.spf), dkim: "fail", dmarc: demote(analysis.auth.dmarc), verified: false },
+      drop: new Set(),
+      finding: forgedAuthFinding(
+        `claims dkim=pass for ${first.domain} · ${first.result === "no-key" ? `it publishes no key "${first.selector}"` : "the signature doesn't verify"}`,
+        false,
+      ),
+    };
+  }
+  return unchanged;
+}
 
 function age(registered: string | null, reference: Date): number | null {
   if (!registered) return null;
@@ -145,13 +217,18 @@ function describeAge(days: number): string {
 }
 
 const ORDER: Record<Severity, number> = { high: 0, medium: 1, low: 2, info: 3 };
+const AUTH_CHECKS = new Set(["dmarc", "spf", "dkim"]);
 
-/** Folds lookup results into an analysis and re-scores it. */
-export function applyIntel(analysis: Analysis, intel: IntelResponse, now = new Date()): Analysis {
+/**
+ * Folds lookup results into an analysis and re-scores it. `dkim` is what verifyDkim found
+ * using the keys in `intel.dkim`.
+ */
+export function applyIntel(analysis: Analysis, intel: IntelResponse, now = new Date(), dkim: DkimResult[] = []): Analysis {
+  const evidence = signatureEvidence(analysis, dkim, now);
   // Ages are measured to when the reader's provider received the email. The Date header won't do:
   // a sender could backdate it to make a days-old domain look registered "after" the email.
   const reference = analysis.receivedAt ? new Date(analysis.receivedAt) : now;
-  const sender = analysis.sender?.address ? registrable(addressDomain(analysis.sender.address)) : null;
+  const sender = senderDomain(analysis);
   const fromTarget = { kind: "header", field: "from" } as const;
   const findings: Finding[] = [];
 
@@ -242,7 +319,11 @@ export function applyIntel(analysis: Analysis, intel: IntelResponse, now = new D
     });
   }
 
-  const all = [...analysis.findings.filter((f) => f.category !== "intel"), ...findings].sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
+  const all = [
+    ...analysis.findings.filter((f) => f.category !== "intel" && !evidence.drop.has(f.rule)),
+    ...findings,
+    ...(evidence.finding ? [evidence.finding] : []),
+  ].sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
   const result = score(all);
   const words = headline(result.verdict, all);
   return {
@@ -252,9 +333,11 @@ export function applyIntel(analysis: Analysis, intel: IntelResponse, now = new D
     score: result.score,
     headline: words.headline,
     summary: words.summary,
+    auth: evidence.auth,
+    checks: [...authChecks(evidence.auth, analysis.partial), ...analysis.checks.filter((c) => !AUTH_CHECKS.has(c.id))],
     // Rebuilt so blocklisted links make the list, and so does an email the lookups turned bad.
     indicators: result.verdict === "no-red-flags" ? [] : indicators({ ...analysis, findings: all }),
-    stats: { ...analysis.stats, tricks: all.filter((f) => f.severity !== "info").length },
+    stats: { ...analysis.stats, tricks: all.filter((f) => f.severity !== "info").length, failedChecks: failedChecks(evidence.auth) },
     nextSteps: nextSteps(result.verdict, all, analysis.mailProvider),
     intel: { sources: intel.sources, unavailable: intel.unavailable },
   };

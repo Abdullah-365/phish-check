@@ -1,4 +1,4 @@
-import type { Analysis, IntelResponse } from "@phish-check/engine";
+import type { Analysis, IntelResponse, ParsedEmail } from "@phish-check/engine";
 import { loadEngine } from "./engine.ts";
 
 const KEY = "phish-check:online-checks";
@@ -28,13 +28,14 @@ export type IntelState =
   | { status: "unavailable" };
 
 /**
- * Asks the Worker about the email's domains, links and attachment fingerprints, then
- * folds the answers into the analysis. The email itself is never sent.
+ * Asks the Worker about the email's domains, links and attachment fingerprints, and for the keys
+ * its DKIM signatures name, then checks the signatures here and folds it all into the analysis.
+ * The email itself is never sent.
  */
-export async function checkOnline(analysis: Analysis): Promise<{ analysis: Analysis; response: IntelResponse }> {
+export async function checkOnline(analysis: Analysis, email: ParsedEmail): Promise<{ analysis: Analysis; response: IntelResponse }> {
   const engine = await loadEngine();
   const request = engine.intelRequest(analysis);
-  if (!request.domains.length && !request.urls.length && !request.hashes.length) {
+  if (!request.domains.length && !request.urls.length && !request.hashes.length && !request.dkim?.length) {
     const response: IntelResponse = { domains: [], urls: [], hashes: [], sources: [], unavailable: [] };
     return { analysis, response };
   }
@@ -46,5 +47,6 @@ export async function checkOnline(analysis: Analysis): Promise<{ analysis: Analy
   });
   if (!res.ok) throw new Error(`Online checks answered ${res.status}`);
   const response = (await res.json()) as IntelResponse;
-  return { analysis: engine.applyIntel(analysis, response), response };
+  const signatures = await engine.verifyDkim(email, Array.isArray(response.dkim) ? response.dkim : []);
+  return { analysis: engine.applyIntel(analysis, response, undefined, signatures), response };
 }

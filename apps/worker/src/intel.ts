@@ -1,4 +1,15 @@
-import { INTEL_LIMITS, inspectUrl, sharedHost, stripQuery, type DomainIntel, type IntelRequest, type IntelResponse, type Listing } from "@phish-check/engine";
+import {
+  INTEL_LIMITS,
+  inspectUrl,
+  sharedHost,
+  stripQuery,
+  type DkimKey,
+  type DkimSignatureInfo,
+  type DomainIntel,
+  type IntelRequest,
+  type IntelResponse,
+  type Listing,
+} from "@phish-check/engine";
 
 /** Optional keys, set with `wrangler secret put`. Each one switches on another lookup. */
 export interface IntelEnv {
@@ -19,8 +30,24 @@ const VT_PER_REQUEST = 4;
 const VT_MIN_ENGINES = 3;
 const DOMAIN = /^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/;
 const HASH = /^[0-9a-f]{64}$/;
+/** A DKIM selector: one or more DNS labels. Some domains use underscores in them. */
+const SELECTOR = /^[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?(?:\.[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?)*$/;
 
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
+
+const keyName = (s: DkimSignatureInfo) => `${s.selector}._domainkey.${s.domain}`;
+
+function signatures(value: unknown): DkimSignatureInfo[] {
+  const out = new Map<string, DkimSignatureInfo>();
+  for (const item of Array.isArray(value) ? value : []) {
+    if (!item || typeof item !== "object") continue;
+    const { domain, selector } = item as Record<string, unknown>;
+    if (typeof domain !== "string" || typeof selector !== "string") continue;
+    const s = { domain: domain.trim().toLowerCase(), selector: selector.trim().toLowerCase() };
+    if (DOMAIN.test(s.domain) && SELECTOR.test(s.selector) && keyName(s).length <= 253) out.set(keyName(s), s);
+  }
+  return [...out.values()].slice(0, INTEL_LIMITS.dkim);
+}
 
 /** Accepts only well-formed indicators, within limits. Anything else is dropped, not echoed. */
 export function parseRequest(body: unknown): IntelRequest | null {
@@ -38,7 +65,7 @@ export function parseRequest(body: unknown): IntelRequest | null {
     .map((h) => h.trim().toLowerCase())
     .filter((h) => HASH.test(h))
     .slice(0, INTEL_LIMITS.hashes);
-  return { domains: [...new Set(domains)], urls: [...new Set(urls)], hashes: [...new Set(hashes)] };
+  return { domains: [...new Set(domains)], urls: [...new Set(urls)], hashes: [...new Set(hashes)], dkim: signatures(raw.dkim) };
 }
 
 const timeout = () => AbortSignal.timeout(TIMEOUT_MS);
@@ -109,27 +136,46 @@ async function rdap(domain: string): Promise<Rdap> {
 
 interface DnsAnswer {
   status: number;
-  types: number[];
+  records: { type: number; data: string }[];
 }
 
 /** A DNS lookup over HTTPS through Cloudflare's resolver. Status 3 means the name doesn't exist. */
-async function dns(name: string, type: "MX" | "A"): Promise<DnsAnswer> {
+async function dns(name: string, type: "MX" | "A" | "TXT"): Promise<DnsAnswer> {
   const res = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`, {
     headers: { accept: "application/dns-json" },
     signal: timeout(),
   });
   if (!res.ok) throw new Error(`DNS answered ${res.status}`);
-  const data = (await res.json()) as { Status: number; Answer?: { type: number }[] };
-  return { status: data.Status, types: (data.Answer ?? []).map((a) => a.type) };
+  const data = (await res.json()) as { Status: number; Answer?: { type: number; data?: string }[] };
+  return { status: data.Status, records: (data.Answer ?? []).map((a) => ({ type: a.type, data: String(a.data ?? "") })) };
+}
+
+/** A TXT record's text. DNS stores long records as several quoted strings, which are joined back up. */
+function txtData(data: string): string {
+  const parts = [...data.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]!.replace(/\\(\d{3}|.)/g, (_, c: string) => (c.length === 3 ? String.fromCharCode(Number(c)) : c)));
+  return parts.length ? parts.join("") : data;
+}
+
+/**
+ * The public key a DKIM signature names, at <selector>._domainkey.<domain>. A name that doesn't
+ * exist, or holds no key, is an answer too (record null); a resolver failure is not.
+ */
+async function dkimKey(signature: DkimSignatureInfo): Promise<{ record: string | null }> {
+  const answer = await dns(keyName(signature), "TXT");
+  if (answer.status === 3) return { record: null };
+  if (answer.status !== 0) throw new Error(`DNS status ${answer.status}`);
+  // Type 16 is TXT; the answer can also hold the CNAMEs followed to reach it.
+  const records = answer.records.filter((r) => r.type === 16).map((r) => txtData(r.data));
+  return { record: records.find((r) => /(?:^|;)\s*p\s*=/i.test(r)) ?? null };
 }
 
 async function mailbox(domain: string): Promise<{ exists: boolean; mailbox: boolean }> {
   const mx = await dns(domain, "MX");
   if (mx.status === 3) return { exists: false, mailbox: false };
-  if (mx.types.includes(15)) return { exists: true, mailbox: true };
+  if (mx.records.some((r) => r.type === 15)) return { exists: true, mailbox: true };
   // No MX record: mail falls back to the A record, if there is one.
   const a = await dns(domain, "A");
-  return { exists: a.status !== 3, mailbox: a.types.includes(1) };
+  return { exists: a.status !== 3, mailbox: a.records.some((r) => r.type === 1) };
 }
 
 interface Feed {
@@ -241,7 +287,7 @@ async function virusTotal(hash: string, key: string): Promise<string | null> {
  *
  * Workers on the free plan may make 50 subrequests per request, so lookups draw on a budget.
  * Each claims its worst case when it starts, and they start strongest evidence first:
- * blocklists, then files, then domains, then the per-link services.
+ * blocklists, then files, then DKIM keys, then domains, then the per-link services.
  */
 export async function lookup(request: IntelRequest, env: IntelEnv): Promise<IntelResponse> {
   const sources = new Set<string>();
@@ -280,6 +326,13 @@ export async function lookup(request: IntelRequest, env: IntelEnv): Promise<Inte
     }),
   );
 
+  const keysTask = Promise.all(
+    (request.dkim ?? []).map(async (signature): Promise<DkimKey | null> => {
+      const key = await attempt("DNS", 1, () => cached(`dkim:${keyName(signature)}`, 3_600, () => dkimKey(signature)));
+      return key && { ...signature, record: key.record };
+    }),
+  );
+
   const domainsTask = Promise.all(
     request.domains.map(async (domain): Promise<DomainIntel> => {
       const [registry, mail] = await Promise.all([
@@ -315,11 +368,13 @@ export async function lookup(request: IntelRequest, env: IntelEnv): Promise<Inte
     }
   })();
 
-  const [domains, , hashes] = await Promise.all([domainsTask, urlsTask, hashesTask]);
+  const [domains, , hashes, keys] = await Promise.all([domainsTask, urlsTask, hashesTask, keysTask]);
   return {
     domains,
     urls: [...listings].map(([url, found]) => ({ url, listings: found })),
     hashes,
+    // A key that couldn't be looked up is left out, so it isn't mistaken for one that doesn't exist.
+    dkim: keys.filter((k) => k !== null),
     // Sorted, so the report lists services the same way whichever answered first.
     sources: [...sources].sort(),
     unavailable: [...unavailable].filter((s) => !sources.has(s)).sort(),

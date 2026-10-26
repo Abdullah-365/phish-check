@@ -27,6 +27,14 @@ function fakeNetwork(registeredDaysAgo: number) {
       });
     }
     if (url.startsWith("https://rdap.registry.test/domain/")) return json({}, 404);
+    if (url.startsWith("https://cloudflare-dns.com/") && url.endsWith("&type=TXT")) {
+      const name = new URL(url).searchParams.get("name");
+      // A key reached through a CNAME, and published as two strings, as long keys are.
+      if (name === "s1._domainkey.shop.test") return json({ Status: 0, Answer: [{ type: 5, data: "s1.keys.test." }, { type: 16, data: '"v=DKIM1; k=rsa; " "p=MIIBIjAN"' }] });
+      if (name === "news._domainkey.shop.test") return json({ Status: 0, Answer: [{ type: 16, data: '"v=spf1 -all"' }] });
+      if (name === "down._domainkey.shop.test") return json({ Status: 2 });
+      return json({ Status: 3 });
+    }
     if (url.startsWith("https://cloudflare-dns.com/")) {
       return url.includes("gone.test") ? json({ Status: 3 }) : json({ Status: 0, Answer: [{ type: 15 }] });
     }
@@ -53,7 +61,26 @@ describe("parseRequest", () => {
         urls: ["https://evil.test/login?u=alex%40inbox.example#top", "javascript:alert(1)", "ftp://files.test"],
         hashes: ["A".repeat(64), "not-a-hash"],
       }),
-    ).toEqual({ domains: ["fresh.test"], urls: ["https://evil.test/login"], hashes: ["a".repeat(64)] });
+    ).toEqual({ domains: ["fresh.test"], urls: ["https://evil.test/login"], hashes: ["a".repeat(64)], dkim: [] });
+  });
+
+  it("keeps well-formed DKIM key names only", () => {
+    const request = parseRequest({
+      dkim: [
+        { domain: "Shop.test", selector: "S1" },
+        { domain: "shop.test", selector: "s1" },
+        { domain: "shop.test", selector: "2024_rsa.mail" },
+        { domain: "shop.test", selector: "x/../../etc" },
+        { domain: "shop.test", selector: "a b" },
+        { domain: "not a domain", selector: "s1" },
+        { domain: "shop.test" },
+        "s1._domainkey.shop.test",
+      ],
+    });
+    expect(request?.dkim).toEqual([
+      { domain: "shop.test", selector: "s1" },
+      { domain: "shop.test", selector: "2024_rsa.mail" },
+    ]);
   });
 
   it("rejects anything that isn't an object", () => {
@@ -75,6 +102,30 @@ describe("lookup", () => {
       { url: "https://storage.googleapis.com/other/page.html", listings: [] },
     ]);
     expect(result.sources).toEqual(["DNS", "OpenPhish", "RDAP"]);
+  });
+
+  it("fetches DKIM keys, telling a missing key from a failed lookup", async () => {
+    const result = await lookup(
+      {
+        domains: [],
+        urls: [],
+        hashes: [],
+        dkim: [
+          { domain: "shop.test", selector: "s1" },
+          { domain: "shop.test", selector: "gone" },
+          { domain: "shop.test", selector: "news" },
+          { domain: "shop.test", selector: "down" },
+        ],
+      },
+      {},
+    );
+    expect(result.dkim).toEqual([
+      { domain: "shop.test", selector: "s1", record: "v=DKIM1; k=rsa; p=MIIBIjAN" },
+      { domain: "shop.test", selector: "gone", record: null },
+      // A TXT record without a key in it isn't a key.
+      { domain: "shop.test", selector: "news", record: null },
+    ]);
+    expect(result.sources).toEqual(["DNS"]);
   });
 
   it("matches big shared platforms by exact page only", async () => {

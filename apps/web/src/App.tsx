@@ -56,7 +56,8 @@ export function App() {
     }
     try {
       const started = performance.now();
-      const analysis = await engine.analyzeEmail(typeof raw === "string" ? raw : new Uint8Array(raw));
+      const email = await engine.parseEmail(typeof raw === "string" ? raw : new Uint8Array(raw));
+      const analysis = await engine.analyzeParsed(email);
       const id = nextId.current++;
       shownId.current = id;
       // Samples use made-up .test domains, so looking them up online would only find nothing.
@@ -67,7 +68,7 @@ export function App() {
       setBusy(false);
       if (checking) {
         try {
-          const online = await checkOnline(analysis);
+          const online = await checkOnline(analysis, email);
           // Only update the email still on screen: a slow answer mustn't overwrite a newer check.
           setResult((current) => (current?.id === id ? { ...current, analysis: online.analysis, intel: { status: "done", response: online.response } } : current));
           if (shownId.current === id && online.analysis.verdict !== analysis.verdict) {

@@ -47,6 +47,10 @@ export interface ParsedEmail {
    * "Forward as attachment" produces. The original sender's evidence lives here.
    */
   embeddedMessages: ParsedEmail[];
+  /** The message exactly as received, for checking its DKIM signatures. */
+  raw: Uint8Array;
+  /** True when this was rebuilt from an Outlook .msg, whose bytes no longer match any signature. */
+  rebuilt: boolean;
 }
 
 export type Verdict = "phishing" | "suspicious" | "no-red-flags";
@@ -144,6 +148,8 @@ export interface AuthSummary {
   dmarc: AuthResult;
   /** The server that recorded the results, e.g. "mx.google.com". */
   recordedBy: string | null;
+  /** True once phish-check verified a signature from the sender's own domain itself. */
+  verified: boolean;
 }
 
 export interface Check {
@@ -228,4 +234,10 @@ export interface Analysis {
   mailProvider: "gmail" | "outlook" | "yahoo" | "apple" | null;
   /** Online lookups merged in by applyIntel, if any ran. */
   intel: { sources: string[]; unavailable: string[] } | null;
+  /**
+   * DKIM evidence of the message whose Authentication-Results were read (for a plain forward,
+   * the forward itself): its signatures, and the domains that header claims passed DKIM.
+   * Null when the message was rebuilt from an Outlook .msg and can't be checked.
+   */
+  dkim: { signatures: { domain: string; selector: string }[]; claimed: string[] } | null;
 }

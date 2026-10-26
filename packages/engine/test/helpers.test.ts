@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readAuth } from "../src/auth.ts";
+import { claimedDkimDomains, readAuth } from "../src/auth.ts";
 import { BRANDS } from "../src/brands.ts";
 import { extractContent } from "../src/content.ts";
 import { belongsTo, claimedHost, imitatedBrand, registrable, unicodeHost } from "../src/domains.ts";
@@ -97,7 +97,15 @@ describe("authentication results", () => {
 
   it("reads the top header and prefers any passing DKIM signature", () => {
     const auth = readAuth(email(["mx.google.com; dkim=fail header.d=a.test; dkim=pass header.d=b.test; spf=pass; dmarc=pass"]));
-    expect(auth).toEqual({ spf: "pass", dkim: "pass", dmarc: "pass", recordedBy: "mx.google.com" });
+    expect(auth).toEqual({ spf: "pass", dkim: "pass", dmarc: "pass", recordedBy: "mx.google.com", verified: false });
+  });
+
+  it("reads which domains a header claims passed DKIM", () => {
+    expect(claimedDkimDomains("mx.google.com; dkim=pass header.i=@PayPal.com header.s=pp1; dkim=fail header.d=x.test; dkim=pass (signature was verified) header.d=mail.shop.example")).toEqual([
+      "paypal.com",
+      "mail.shop.example",
+    ]);
+    expect(claimedDkimDomains(undefined)).toEqual([]);
   });
 
   it("doesn't treat Microsoft's bestguesspass as a real DMARC pass", () => {

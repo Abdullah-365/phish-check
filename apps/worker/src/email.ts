@@ -6,7 +6,7 @@
  * a Worker reply to a sender whose message passed DMARC, so the address can't be used to send
  * mail to someone whose address a spammer forged.
  */
-import { analyzeEmail, analyzeParsed, applyIntel, intelRequest, parseEmail, type Analysis } from "@phish-check/engine";
+import { analyzeParsed, applyIntel, intelRequest, parseEmail, verifyDkim, type Analysis, type ParsedEmail } from "@phish-check/engine";
 import { readCapped } from "./body.ts";
 import { lookup, type IntelEnv } from "./intel.ts";
 import { noticeReply, verdictReply, type ReplyContent } from "./reply.ts";
@@ -60,12 +60,12 @@ const EMAIL_FILE = /\.(eml|msg)$/i;
  * What to check in the forward: the original inside a "forward as attachment", an attached
  * .eml or .msg file, or the quoted original of a plain forward. Null when there's no original.
  */
-async function original(raw: Uint8Array): Promise<Analysis | null> {
+async function original(raw: Uint8Array): Promise<{ analysis: Analysis; email: ParsedEmail } | null> {
   const parsed = await parseEmail(raw);
   const file = parsed.embeddedMessages.length ? undefined : parsed.attachments.find((a) => EMAIL_FILE.test(a.filename ?? ""));
-  if (file) return analyzeEmail(file.content);
-  const analysis = await analyzeParsed(parsed);
-  return analysis.forwarded ? analysis : null;
+  const email = file ? await parseEmail(file.content) : parsed;
+  const analysis = await analyzeParsed(email);
+  return file || analysis.forwarded ? { analysis, email } : null;
 }
 
 export async function handleEmail(message: ForwardableEmailMessage, env: IntelEnv): Promise<void> {
@@ -90,17 +90,21 @@ export async function handleEmail(message: ForwardableEmailMessage, env: IntelEn
   const raw = await readCapped(message.raw, MAX_FORWARD);
   if (!raw) return reply(noticeReply("too-large", subject));
 
-  let analysis: Analysis | null;
+  let found: Awaited<ReturnType<typeof original>>;
   try {
-    analysis = await original(raw);
+    found = await original(raw);
   } catch {
     return reply(noticeReply("unreadable", subject));
   }
-  if (!analysis) return reply(noticeReply("not-a-forward", subject));
+  if (!found) return reply(noticeReply("not-a-forward", subject));
 
+  let { analysis } = found;
   try {
     const request = intelRequest(analysis);
-    if (request.domains.length || request.urls.length || request.hashes.length) analysis = applyIntel(analysis, await lookup(request, env));
+    if (request.domains.length || request.urls.length || request.hashes.length || request.dkim?.length) {
+      const response = await lookup(request, env);
+      analysis = applyIntel(analysis, response, undefined, await verifyDkim(found.email, response.dkim ?? []));
+    }
   } catch {
     // The verdict stands without online checks.
   }

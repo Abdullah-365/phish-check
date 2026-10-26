@@ -1,5 +1,5 @@
 import { attachmentChecks, readerAttachments } from "./attachments.ts";
-import { buildChecks, failedChecks, readAuth } from "./auth.ts";
+import { buildChecks, claimedDkimDomains, DISTRUSTED_AUTH, failedChecks, forgedAuthFinding, readAuth, unbackedClaims } from "./auth.ts";
 import { BRANDS, brandsMentionedIn } from "./brands.ts";
 import {
   brandClaimFinding,
@@ -12,6 +12,7 @@ import {
   type CheckContext,
 } from "./checks.ts";
 import { extractContent, images, links, plainText } from "./content.ts";
+import { dkimSignatures, verifySignatures, type DkimKey, type DkimResult } from "./dkim.ts";
 import { latinize } from "./domains.ts";
 import { evasionFindings } from "./evasion.ts";
 import { indicators, keyHeaders } from "./evidence.ts";
@@ -24,7 +25,7 @@ import { inspectUrl } from "./urls.ts";
 import { authFindings, detectProvider, headline, nextSteps, score } from "./verdict.ts";
 import { markWording, subjectGroups, wordingFindings } from "./wording.ts";
 
-const UNKNOWN_AUTH: AuthSummary = { spf: "unknown", dkim: "unknown", dmarc: "unknown", recordedBy: null };
+const UNKNOWN_AUTH: AuthSummary = { spf: "unknown", dkim: "unknown", dmarc: "unknown", recordedBy: null, verified: false };
 const ORDER: Record<Severity, number> = { high: 0, medium: 1, low: 2, info: 3 };
 const LIST_HEADERS = new Set(["list-id", "list-post", "mailing-list", "x-mailing-list"]);
 /** Wording findings that make a brand named in the subject look like impersonation rather than news. */
@@ -41,6 +42,15 @@ export async function analyzeEmail(raw: RawEmail): Promise<Analysis> {
   return analyzeParsed(await parseEmail(raw));
 }
 
+/**
+ * Checks the DKIM signatures of the message analyzeParsed judged, against keys the Worker looked
+ * up for intelRequest's `dkim`. A .msg rebuilt from Outlook's properties can't match any signature.
+ */
+export async function verifyDkim(outer: ParsedEmail, keys: DkimKey[]): Promise<DkimResult[]> {
+  const email = outer.embeddedMessages[0] ?? outer;
+  return email.rebuilt ? [] : verifySignatures(email.raw, keys);
+}
+
 export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
   // "Forward as attachment" keeps the original intact: judge that, not the forward.
   const embedded = outer.embeddedMessages[0];
@@ -52,9 +62,15 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
   }
   const bodyText = plainText(content);
 
+  // The signatures behind the authentication results being read, so online checks can verify
+  // them. A rebuilt .msg can't match any signature. A claimed DKIM pass from a domain that signed
+  // nothing here means the header itself was written by the sender, so none of it counts.
+  const dkim = email.rebuilt ? null : { signatures: dkimSignatures(email.raw), claimed: claimedDkimDomains(email.authenticationResults[0]) };
+  const unbacked = dkim ? unbackedClaims(dkim.claimed, dkim.signatures) : [];
+  const outerAuth = unbacked.length ? DISTRUSTED_AUTH : readAuth(email);
+
   // A plain "Forward" loses the original headers; only the quoted From line survives.
   // The raw text keeps the quoted header lines intact, so prefer it over the reading view.
-  const outerAuth = readAuth(email);
   const quoted = embedded || !trustedForward(email.subject, outerAuth) ? null : quotedOriginal(email.text || bodyText);
   const partial = quoted !== null;
   const forwarded = embedded
@@ -110,6 +126,7 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
     ...senderFindings(ctx),
     ...(brandClaim ? [brandClaim] : []),
     ...(partial ? [] : authFindings(auth, arcPassed)),
+    ...(unbacked.length ? [forgedAuthFinding(`claims dkim=pass for ${unbacked.join(", ")} · no signature from it`, true)] : []),
     ...(reply.finding ? [reply.finding] : []),
     ...linkFindings(ctx),
     ...formFindings(content),
@@ -162,5 +179,6 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
     partial,
     mailProvider,
     intel: null,
+    dkim,
   };
 }

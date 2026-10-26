@@ -1,4 +1,5 @@
-import type { AuthResult, AuthSummary, Check, ParsedEmail } from "./types.ts";
+import { registrable } from "./domains.ts";
+import type { AuthResult, AuthSummary, Check, Finding, ParsedEmail } from "./types.ts";
 
 const RESULTS: Record<string, AuthResult> = {
   pass: "pass",
@@ -24,7 +25,7 @@ export function readAuth(email: ParsedEmail): AuthSummary {
   const top = email.authenticationResults[0];
   const receivedSpf = email.headers.find((h) => h.name === "received-spf")?.value;
   if (!top) {
-    return { spf: receivedSpf ? toResult(receivedSpf.trim().split(/[\s(;]/)[0]) : "unknown", dkim: "unknown", dmarc: "unknown", recordedBy: null };
+    return { spf: receivedSpf ? toResult(receivedSpf.trim().split(/[\s(;]/)[0]) : "unknown", dkim: "unknown", dmarc: "unknown", recordedBy: null, verified: false };
   }
   const results = (method: string) =>
     [...top.matchAll(new RegExp(`(?:^|[;\\s])${method}\\s*=\\s*([a-z]+)`, "gi"))].map((m) => toResult(m[1]));
@@ -37,7 +38,55 @@ export function readAuth(email: ParsedEmail): AuthSummary {
     dkim: dkim.includes("pass") ? "pass" : (dkim[0] ?? "none"),
     dmarc: dmarc[0] ?? "none",
     recordedBy: top.split(";")[0]?.trim().split(/\s+/)[0] || null,
+    verified: false,
   };
+}
+
+/** What's left once an email's own Authentication-Results header turns out to be fake. */
+export const DISTRUSTED_AUTH: AuthSummary = { spf: "unknown", dkim: "unknown", dmarc: "unknown", recordedBy: null, verified: false };
+
+/**
+ * Claimed DKIM passes for domains that signed nothing in the email. A provider only records a
+ * pass for a signature it found, so a claim with no signature behind it was written by the sender.
+ */
+export function unbackedClaims(claimed: string[], signatures: { domain: string }[]): string[] {
+  const signed = new Set(signatures.map((s) => registrable(s.domain)));
+  return claimed.filter((domain) => !signed.has(registrable(domain)));
+}
+
+/**
+ * `proven`: the header claims a signature the email doesn't carry, which needs no key to see.
+ * Otherwise the signature exists but doesn't verify against the domain's key, which is strong but
+ * not proof: a mail system may have changed the email after it arrived.
+ */
+export function forgedAuthFinding(detail: string, proven: boolean): Finding {
+  return {
+    id: proven ? "auth-forged" : "auth-signature-fail",
+    rule: proven ? "auth-forged" : "auth-signature-fail",
+    category: proven ? "sender" : "intel",
+    severity: proven ? "high" : "medium",
+    title: proven ? "Its authentication results are faked" : "Its signature doesn't check out",
+    real: { text: detail },
+    explanation: proven
+      ? "A header in the email claims it passed the checks that prove who sent it, but the email carries no signature to back that up. Only a sender trying to look legitimate fakes this."
+      : "A header in the email says its signature passed, but phish-check checked the signature against the key the signing domain publishes, and it doesn't hold up. Either the email was changed after it arrived, or the sender wrote that header to look legitimate.",
+    lensLabel: "Authentication",
+    target: { kind: "header", field: "from" },
+  };
+}
+
+/**
+ * The signing domains an Authentication-Results header says passed DKIM, from its header.d
+ * (or header.i) values. A forged header has to name them, and they can then be checked.
+ */
+export function claimedDkimDomains(results: string | undefined): string[] {
+  const out = new Set<string>();
+  for (const segment of (results ?? "").split(";")) {
+    if (!/(?:^|\s)dkim\s*=\s*pass\b/i.test(segment)) continue;
+    const domain = segment.match(/\bheader\.d\s*=\s*([^\s;()]+)/i)?.[1] ?? segment.match(/\bheader\.i\s*=\s*[^\s;@()]*@([^\s;()]+)/i)?.[1];
+    if (domain) out.add(domain.toLowerCase());
+  }
+  return [...out];
 }
 
 export function failedChecks(auth: AuthSummary): number {
@@ -84,29 +133,40 @@ const EXPLAIN = {
   },
 } as const;
 
-export function buildChecks(
-  auth: AuthSummary,
-  reply: { elsewhere: boolean; domain: string | null },
-  partial: boolean,
-): Check[] {
-  const unknown = partial
-    ? "Not available: the original headers were lost when this was forwarded."
-    : "Your email provider didn't record this check.";
+/** When phish-check verified the sender's signature itself, the cards say so. */
+const VERIFIED: Partial<Record<Check["id"], string>> = {
+  dmarc: "The sender's domain signed this email, and phish-check verified the signature itself.",
+  dkim: "A valid signature from the sender's own domain proves it wasn't changed. phish-check checked it itself.",
+};
+
+const unknownText = (partial: boolean) =>
+  partial ? "Not available: the original headers were lost when this was forwarded." : "Your email provider didn't record this check.";
+
+/** The three authentication cards: DMARC, SPF and DKIM. */
+export function authChecks(auth: AuthSummary, partial: boolean): Check[] {
   const check = (id: "dmarc" | "spf" | "dkim", label: string): Check => {
     const result = auth[id];
     const explain = EXPLAIN[id] as Partial<Record<AuthResult, string>>;
+    const verified = auth.verified && result === "pass" ? VERIFIED[id] : undefined;
     return {
       id,
       label,
       status: STATUS[result],
       value: VALUE[result],
-      explanation: result === "unknown" ? unknown : (explain[result] ?? "The check couldn't be completed."),
+      explanation: verified ?? (result === "unknown" ? unknownText(partial) : (explain[result] ?? "The check couldn't be completed.")),
     };
   };
+  return [check("dmarc", "Domain policy · DMARC"), check("spf", "Sending server · SPF"), check("dkim", "Signature · DKIM")];
+}
+
+export function buildChecks(
+  auth: AuthSummary,
+  reply: { elsewhere: boolean; domain: string | null },
+  partial: boolean,
+): Check[] {
+  const unknown = unknownText(partial);
   return [
-    check("dmarc", "Domain policy · DMARC"),
-    check("spf", "Sending server · SPF"),
-    check("dkim", "Signature · DKIM"),
+    ...authChecks(auth, partial),
     partial
       ? { id: "reply-to", label: "Replies go to", status: "unknown", value: "Unknown", explanation: unknown }
       : reply.elsewhere

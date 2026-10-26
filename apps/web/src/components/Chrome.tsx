@@ -50,8 +50,8 @@ export function Footer() {
         <p className="privacy">
           phish-check reads the email inside your browser and never uploads or stores it. With online checks on, it looks up only
           the domains in the email, its link addresses (with personal details in them removed) and file fingerprints, to see how
-          new they are and whether they're on phishing blocklists. There are no cookies or analytics, and it never opens a link
-          or loads an image from the emails it checks.
+          new they are and whether they're on phishing blocklists, plus the public keys its signatures name, to check them here.
+          There are no cookies or analytics, and it never opens a link or loads an image from the emails it checks.
         </p>
         <div className="foot-row">
           <span>
