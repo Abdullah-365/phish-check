@@ -104,9 +104,10 @@ export async function handleEmail(message: ForwardableEmailMessage, env: IntelEn
     return reply(noticeReply("unreadable", subject));
   }
   if ("seen" in found) {
-    // TEMPORARY: what arrived, for diagnosing the first live forwarding test. Remove once it passes.
-    const arrived = new TextDecoder().decode(raw.subarray(0, 2500));
-    return reply(noticeReply("not-a-forward", subject, `${found.seen}\n\n[debug] ${raw.length} bytes arrived; they start:\n${arrived}`));
+    // TEMPORARY: the MIME skeleton of what arrived, for diagnosing the first live forwarding test. Remove once it passes.
+    const lines = new TextDecoder().decode(raw).split(/\r?\n/);
+    const skeleton = lines.filter((line, i) => /^--|^content-|^mime-/i.test(line) || (/^[ \t]/.test(line) && /^content-/i.test(lines[i - 1] ?? "")));
+    return reply(noticeReply("not-a-forward", subject, `${found.seen}\n\n[debug] ${raw.length} bytes, ${lines.length} lines. Skeleton:\n${skeleton.join("\n").slice(0, 3000)}`));
   }
 
   let { analysis } = found;
