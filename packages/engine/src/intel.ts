@@ -4,7 +4,7 @@
  * file fingerprints, DKIM key names and the sending server an SPF claim names are ever sent:
  * never the email itself.
  */
-import { authChecks, failedChecks, forgedAuthFinding, spfMismatchFinding } from "./auth.ts";
+import { authChecks, failedChecks, spfMismatchFinding, unverifiedSignatureFinding } from "./auth.ts";
 import { BRANDS, FREE_MAIL } from "./brands.ts";
 import { links } from "./content.ts";
 import type { DkimKey, DkimResult, DkimSignatureInfo } from "./dkim.ts";
@@ -196,7 +196,7 @@ function authEvidence(analysis: Analysis, intel: IntelResponse, signatures: Dkim
 
   const received = analysis.receivedAt ? Date.parse(analysis.receivedAt) : NaN;
   const recent = now.getTime() - received <= CLAIMS_HOLD_DAYS * DAY;
-  // A claim with no signature behind it at all was already caught offline, which is proof enough.
+  // A header the email itself already disproved needs no further evidence.
   if (!recent || analysis.findings.some((f) => f.rule === "auth-forged")) return unchanged;
 
   const findings: Finding[] = [];
@@ -207,7 +207,7 @@ function authEvidence(analysis: Analysis, intel: IntelResponse, signatures: Dkim
     if (!own.length || !own.every((r) => r.result === "fail" || r.result === "no-key")) continue;
     const first = own[0]!;
     const why = first.result === "no-key" ? `it publishes no key "${first.selector}"` : "the signature doesn't verify";
-    findings.push(forgedAuthFinding(`claims dkim=pass for ${first.domain} · ${why}`, false));
+    findings.push(unverifiedSignatureFinding(`claims dkim=pass for ${first.domain} · ${why}`));
     dkimBroken = true;
     break;
   }

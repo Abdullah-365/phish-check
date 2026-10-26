@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DnsAnswer, DnsType } from "../src/dns.ts";
-import { evaluateSpf, parseIp } from "../src/spf.ts";
+import { evaluateSpf } from "../src/spf.ts";
 
 /** A fake DNS zone: TXT records as text, A/AAAA as addresses, MX as host names. */
 function zone(records: Record<string, Partial<Record<DnsType, string[]>>>) {
@@ -114,10 +114,8 @@ describe("SPF", () => {
     expect(dns.asked.length).toBeLessThanOrEqual(12);
   });
 
-  it("parses IPv4 and IPv6 addresses", () => {
-    expect(parseIp("192.0.2.1")).toEqual(Uint8Array.from([192, 0, 2, 1]));
-    expect(parseIp("2001:db8::1")?.length).toBe(16);
-    expect(parseIp("::ffff:192.0.2.1")).toEqual(Uint8Array.from([192, 0, 2, 1]));
-    for (const bad of ["192.0.2", "192.0.2.256", "1:2:3:4:5:6:7:8:9", "2001:db8:::1", "example.com", ""]) expect(parseIp(bad), bad).toBeNull();
+  it("treats an IP address where a domain belongs as a broken record, as RFC 7208 does", async () => {
+    const dns = zone({ "shop.test": { TXT: ["v=spf1 ip4:192.0.2.1 a:198.51.100.7 -all"] } });
+    expect(await evaluateSpf("shop.test", "192.0.2.1", dns.lookup)).toBe("permerror");
   });
 });

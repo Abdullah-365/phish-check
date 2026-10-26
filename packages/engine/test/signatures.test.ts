@@ -138,6 +138,21 @@ describe("DKIM signatures as evidence", () => {
     expect(updated.verdict).toBe("suspicious");
   });
 
+  it("catches an SPF claim naming a server the email's delivery record never mentions, offline", async () => {
+    // The Received line says 192.0.2.10 delivered it; the header claims PayPal's server passed.
+    const analysis = await analyzeEmail(await delivered("spf=pass (sender IP is 203.0.113.77) smtp.mailfrom=paypal.com; dkim=pass header.d=shop.example; dmarc=pass header.from=shop.example"));
+    expect(analysis.findings.find((f) => f.rule === "auth-forged")).toMatchObject({
+      id: "auth-forged-spf",
+      severity: "high",
+      real: { text: "claims spf=pass for paypal.com from 203.0.113.77 · no Received line records that server" },
+    });
+    expect(analysis.auth).toMatchObject({ spf: "unknown", dkim: "unknown", dmarc: "unknown" });
+    expect(intelRequest(analysis).spf).toBeUndefined();
+    // The same claim naming the server that really delivered it is left for the online check.
+    const honest = await analyzeEmail(await delivered("spf=pass (sender IP is 192.0.2.10) smtp.mailfrom=shop.example; dkim=pass header.d=shop.example"));
+    expect(honest.findings.some((f) => f.rule === "auth-forged")).toBe(false);
+  });
+
   it("catches a header claiming a signature the email doesn't carry, offline", async () => {
     const analysis = await analyzeEmail(await delivered("spf=pass; dkim=pass header.d=paypal.com; dmarc=pass header.from=paypal.com"));
     expect(analysis.findings.find((f) => f.rule === "auth-forged")).toMatchObject({ severity: "high", real: { text: "claims dkim=pass for paypal.com · no signature from it" } });

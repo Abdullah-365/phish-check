@@ -5,7 +5,7 @@
  * record whether it allows that address shows whether the claim could be true. It can't show which
  * server really delivered the email: only the receiving server saw that.
  */
-import type { SpfResult } from "@phish-check/engine";
+import { parseIp, type SpfResult } from "@phish-check/engine";
 import { dns, txtData, type DnsAnswer, type DnsType } from "./dns.ts";
 
 /** DNS queries one check may make: the 10 lookups RFC 7208 allows, the record itself and some slack. */
@@ -37,41 +37,6 @@ class Stop extends Error {
   }
 }
 
-/** An IP address as bytes: 4 for IPv4, 16 for IPv6. An IPv4 address written as IPv6 counts as IPv4. */
-export function parseIp(text: string): Uint8Array | null {
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
-  if (v4) {
-    const bytes = v4.slice(1).map(Number);
-    return bytes.every((b) => b <= 255) ? Uint8Array.from(bytes) : null;
-  }
-  if (!text.includes(":") || !/^[0-9a-f:.]+$/i.test(text)) return null;
-  let body = text;
-  let tail: Uint8Array | null = null;
-  if (body.includes(".")) {
-    const at = body.lastIndexOf(":");
-    tail = parseIp(body.slice(at + 1));
-    if (!tail || tail.length !== 4) return null;
-    body = `${body.slice(0, at + 1)}0:0`;
-  }
-  const halves = body.split("::");
-  if (halves.length > 2) return null;
-  const head = halves[0] ? halves[0].split(":") : [];
-  const rest = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
-  const missing = 8 - head.length - rest.length;
-  if (halves.length === 1 ? missing !== 0 : missing < 1) return null;
-  const groups = [...head, ...Array<string>(halves.length === 2 ? missing : 0).fill("0"), ...rest];
-  if (!groups.every((g) => /^[0-9a-f]{1,4}$/i.test(g))) return null;
-  const out = new Uint8Array(16);
-  groups.forEach((g, i) => {
-    const n = parseInt(g, 16);
-    out[i * 2] = n >> 8;
-    out[i * 2 + 1] = n & 0xff;
-  });
-  if (tail) out.set(tail, 12);
-  const mapped = out.subarray(0, 10).every((b) => b === 0) && out[10] === 0xff && out[11] === 0xff;
-  return mapped ? out.slice(12) : out;
-}
-
 function inNetwork(ip: Uint8Array, network: Uint8Array, bits: number): boolean {
   if (ip.length !== network.length) return false;
   for (let i = 0; i < ip.length && bits > 0; i++, bits -= 8) {
@@ -83,7 +48,18 @@ function inNetwork(ip: Uint8Array, network: Uint8Array, bits: number): boolean {
 
 const QUALIFIERS: Record<string, SpfResult> = { "": "pass", "+": "pass", "-": "fail", "~": "softfail", "?": "neutral" };
 const MACRO = /%(?:\{([a-z])(\d*)(r?)([.\-+,/_=]*)\}|[%_-])/gi;
-const VALID_SPEC = /^(?:[^%\s]|%%|%_|%-|%\{[slodiphcrtv]\d*r?[.\-+,/_=]*\})+$/i;
+const MACRO_STRING = /^(?:[^%\s]|%%|%_|%-|%\{[slodiphcrtv]\d*r?[.\-+,/_=]*\})+$/i;
+
+/**
+ * A domain-spec as RFC 7208 writes it: it ends in a macro, or in a last label that isn't all
+ * digits, so an IP address where a domain belongs is a syntax error.
+ */
+function validSpec(spec: string): boolean {
+  if (!MACRO_STRING.test(spec)) return false;
+  if (/%\{[^}]*\}$/.test(spec)) return true;
+  const last = /\.([a-z0-9-]+)\.?$/i.exec(spec)?.[1];
+  return !!last && (/[a-z]/i.test(last) || /^[a-z0-9]+-[a-z0-9-]*[a-z0-9]$/i.test(last));
+}
 
 interface Term {
   qualifier: SpfResult;
@@ -103,7 +79,7 @@ function parseRecord(record: string): { terms: Term[]; redirect: string | null }
     const modifier = /^([a-z][a-z0-9_.-]*)=(.*)$/i.exec(word);
     if (modifier) {
       if (modifier[1]!.toLowerCase() === "redirect") {
-        if (redirect !== null || !VALID_SPEC.test(modifier[2]!)) return null;
+        if (redirect !== null || !validSpec(modifier[2]!)) return null;
         redirect = modifier[2]!;
       }
       continue;
@@ -130,7 +106,7 @@ function parseRecord(record: string): { terms: Term[]; redirect: string | null }
       const [, spec, cidr4, cidr6] = parts;
       const needsSpec = name === "include" || name === "exists";
       const takesCidr = name === "a" || name === "mx";
-      if ((needsSpec && !spec) || (!takesCidr && (cidr4 || cidr6)) || (spec && !VALID_SPEC.test(spec))) return null;
+      if ((needsSpec && !spec) || (!takesCidr && (cidr4 || cidr6)) || (spec && !validSpec(spec))) return null;
       if (Number(cidr4 ?? 32) > 32 || Number(cidr6 ?? 128) > 128) return null;
       term.spec = spec ?? null;
       term.cidr4 = Number(cidr4 ?? 32);

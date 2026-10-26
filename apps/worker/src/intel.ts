@@ -1,6 +1,7 @@
 import {
   INTEL_LIMITS,
   inspectUrl,
+  parseIp,
   sharedHost,
   stripQuery,
   type DkimKey,
@@ -12,7 +13,7 @@ import {
   type SpfClaim,
 } from "@phish-check/engine";
 import { dns, timeout, txtData } from "./dns.ts";
-import { evaluateSpf, parseIp, SPF_QUERIES } from "./spf.ts";
+import { evaluateSpf, SPF_QUERIES } from "./spf.ts";
 
 /** Optional keys, set with `wrangler secret put`. Each one switches on another lookup. */
 export interface IntelEnv {

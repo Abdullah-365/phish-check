@@ -54,22 +54,40 @@ export function unbackedClaims(claimed: string[], signatures: { domain: string }
   return claimed.filter((domain) => !signed.has(registrable(domain)));
 }
 
-/**
- * `proven`: the header claims a signature the email doesn't carry, which needs no key to see.
- * Otherwise the signature exists but doesn't verify against the domain's key, which is strong but
- * not proof: a mail system may have changed the email after it arrived.
- */
-export function forgedAuthFinding(detail: string, proven: boolean): Finding {
+const FORGED = {
+  dkim: "A header in the email claims it passed the checks that prove who sent it, but the email carries no signature to back that up. Only a sender trying to look legitimate fakes this.",
+  spf: "A header in the email claims it passed SPF for a server that, by the email's own delivery record, never handled it. Mail providers record the server they check, so only a sender trying to look legitimate fakes this.",
+};
+
+/** A header claim the email itself disproves, which needs no key or DNS lookup to see. */
+export function forgedAuthFinding(detail: string, method: keyof typeof FORGED): Finding {
   return {
-    id: proven ? "auth-forged" : "auth-signature-fail",
-    rule: proven ? "auth-forged" : "auth-signature-fail",
-    category: proven ? "sender" : "intel",
-    severity: proven ? "high" : "medium",
-    title: proven ? "Its authentication results are faked" : "Its signature doesn't check out",
+    id: `auth-forged-${method}`,
+    rule: "auth-forged",
+    category: "sender",
+    severity: "high",
+    title: "Its authentication results are faked",
     real: { text: detail },
-    explanation: proven
-      ? "A header in the email claims it passed the checks that prove who sent it, but the email carries no signature to back that up. Only a sender trying to look legitimate fakes this."
-      : "A header in the email says its signature passed, but phish-check checked the signature against the key the signing domain publishes, and it doesn't hold up. Either the email was changed after it arrived, or the sender wrote that header to look legitimate.",
+    explanation: FORGED[method],
+    lensLabel: "Authentication",
+    target: { kind: "header", field: "from" },
+  };
+}
+
+/**
+ * A claimed DKIM pass whose signature doesn't verify against the domain's key: strong, but not
+ * proof, since a mail system may have changed the email after it arrived.
+ */
+export function unverifiedSignatureFinding(detail: string): Finding {
+  return {
+    id: "auth-signature-fail",
+    rule: "auth-signature-fail",
+    category: "intel",
+    severity: "medium",
+    title: "Its signature doesn't check out",
+    real: { text: detail },
+    explanation:
+      "A header in the email says its signature passed, but phish-check checked the signature against the key the signing domain publishes, and it doesn't hold up. Either the email was changed after it arrived, or the sender wrote that header to look legitimate.",
     lensLabel: "Authentication",
     target: { kind: "header", field: "from" },
   };

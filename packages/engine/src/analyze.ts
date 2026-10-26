@@ -14,6 +14,7 @@ import {
 import { extractContent, images, links, plainText } from "./content.ts";
 import { dkimSignatures, verifySignatures, type DkimKey, type DkimResult } from "./dkim.ts";
 import { latinize } from "./domains.ts";
+import { recordedAddresses, sameIp } from "./ip.ts";
 import { evasionFindings } from "./evasion.ts";
 import { indicators, keyHeaders } from "./evidence.ts";
 import { quotedOriginal, trustedForward } from "./forward.ts";
@@ -67,9 +68,15 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
   // nothing here means the header itself was written by the sender, so none of it counts.
   const dkim = email.rebuilt ? null : { signatures: dkimSignatures(email.raw), claimed: claimedDkimDomains(email.authenticationResults[0]) };
   const unbacked = dkim ? unbackedClaims(dkim.claimed, dkim.signatures) : [];
-  const outerAuth = unbacked.length ? DISTRUSTED_AUTH : readAuth(email);
-  // Its SPF claim needs no message bytes to test, so even a rebuilt .msg keeps it.
-  const spfClaim = unbacked.length ? null : claimedSpf(email.authenticationResults[0]);
+  // A claimed SPF pass names the server the provider checked, and the provider records every server
+  // it accepts mail from in a Received line. A claim naming a server no Received line mentions is fake.
+  // Testing a claim needs no message bytes, so even a rebuilt .msg keeps it.
+  const claimedPass = claimedSpf(email.authenticationResults[0]);
+  const recorded = recordedAddresses(email.received);
+  const unrecorded = claimedPass && recorded && !recorded.some((ip) => sameIp(ip, claimedPass.ip)) ? claimedPass : null;
+  const forged = unbacked.length > 0 || unrecorded !== null;
+  const outerAuth = forged ? DISTRUSTED_AUTH : readAuth(email);
+  const spfClaim = forged ? null : claimedPass;
 
   // A plain "Forward" loses the original headers; only the quoted From line survives.
   // The raw text keeps the quoted header lines intact, so prefer it over the reading view.
@@ -128,7 +135,8 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
     ...senderFindings(ctx),
     ...(brandClaim ? [brandClaim] : []),
     ...(partial ? [] : authFindings(auth, arcPassed)),
-    ...(unbacked.length ? [forgedAuthFinding(`claims dkim=pass for ${unbacked.join(", ")} · no signature from it`, true)] : []),
+    ...(unbacked.length ? [forgedAuthFinding(`claims dkim=pass for ${unbacked.join(", ")} · no signature from it`, "dkim")] : []),
+    ...(unrecorded ? [forgedAuthFinding(`claims spf=pass for ${unrecorded.domain} from ${unrecorded.ip} · no Received line records that server`, "spf")] : []),
     ...(reply.finding ? [reply.finding] : []),
     ...linkFindings(ctx),
     ...formFindings(content),

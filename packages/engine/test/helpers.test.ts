@@ -3,6 +3,7 @@ import { claimedDkimDomains, claimedSpf, readAuth } from "../src/auth.ts";
 import { BRANDS } from "../src/brands.ts";
 import { extractContent } from "../src/content.ts";
 import { belongsTo, claimedHost, imitatedBrand, registrable, unicodeHost } from "../src/domains.ts";
+import { parseIp, recordedAddresses, sameIp } from "../src/ip.ts";
 import type { ParsedEmail } from "../src/types.ts";
 
 const brand = (name: string) => BRANDS.find((b) => b.name === name)!;
@@ -39,6 +40,30 @@ describe("look-alike domains", () => {
   it("doesn't flag short brand names inside ordinary words", () => {
     expect(imitatedBrand("groups.example", [brand("UPS")])).toBeNull();
     expect(imitatedBrand("ups-delivery.test", [brand("UPS")])?.kind).toBe("contains");
+  });
+});
+
+describe("IP addresses", () => {
+  it("parses IPv4 and IPv6, and compares them however they're written", () => {
+    expect(parseIp("192.0.2.1")).toEqual(Uint8Array.from([192, 0, 2, 1]));
+    expect(parseIp("2001:db8::1")?.length).toBe(16);
+    expect(parseIp("::ffff:192.0.2.1")).toEqual(Uint8Array.from([192, 0, 2, 1]));
+    for (const bad of ["192.0.2", "192.0.2.256", "1:2:3:4:5:6:7:8:9", "2001:db8:::1", "example.com", ""]) expect(parseIp(bad), bad).toBeNull();
+    expect(sameIp("2a01:111:f400:7d00::802", "2A01:0111:F400:7D00:0:0:0:802")).toBe(true);
+    expect(sameIp("::ffff:192.0.2.1", "192.0.2.1")).toBe(true);
+    expect(sameIp("192.0.2.1", "192.0.2.2")).toBe(false);
+  });
+
+  it("finds the server addresses Received lines record, in every common format", () => {
+    expect(
+      recordedAddresses([
+        "by 2002:a05:6a10:7b8f with SMTP id x; Mon, 26 Oct 2026 09:00:05 +0000",
+        "from mail.shop.example (mail.shop.example. [192.0.2.10]) by mx.google.com with ESMTPS id y",
+        "from mail.example.net (198.51.100.7) by AM2PEPF0001.mail.protection.outlook.com (10.167.16.95) with Microsoft SMTP Server",
+        "from [IPv6:2001:db8::25] (helo=mx.example.org) by mail.example.com with esmtp (Exim 4.96)",
+      ]),
+    ).toEqual(["192.0.2.10", "198.51.100.7", "2001:db8::25"]);
+    expect(recordedAddresses(["by 2002:a05:6a10:7b8f with SMTP id x"])).toBeNull();
   });
 });
 
