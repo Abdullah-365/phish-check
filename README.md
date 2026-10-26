@@ -155,3 +155,7 @@ npx wrangler secret put VT_KEY        # VirusTotal, used for file fingerprints o
 | 4 | Engine tuned on real phishing; online checks through the Worker (domain age, DNS, phishing feeds, file reputation) | ✅ |
 | 5 | Forward-to-check by email | ✅ Live at check@abdullah1.dev |
 | 6 | Ship at `phish.abdullah1.dev` | ✅ Live |
+
+## License
+
+[MIT](LICENSE) © 2026 Abdullah
