@@ -240,4 +240,19 @@ export interface Analysis {
    * Null when the message was rebuilt from an Outlook .msg and can't be checked.
    */
   dkim: { signatures: { domain: string; selector: string }[]; claimed: string[] } | null;
+  /**
+   * The SPF pass that header claims, with the server address it names, so online checks can ask
+   * the domain's own SPF record whether that server may send for it. Null when none is claimed.
+   */
+  spfClaim: SpfClaim | null;
 }
+
+export interface SpfClaim {
+  /** The domain SPF was checked for: the envelope sender's, or the server's own name. */
+  domain: string;
+  /** The sending server's address, as the header names it. */
+  ip: string;
+}
+
+/** RFC 7208's results. permerror is a broken record; temperror is a DNS failure, or anything inconclusive. */
+export type SpfResult = "pass" | "fail" | "softfail" | "neutral" | "none" | "permerror" | "temperror";

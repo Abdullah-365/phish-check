@@ -1,15 +1,16 @@
 /**
  * Online verification. The engine decides what to look up and how to read the answers;
  * the Worker does the lookups. Only domains, link addresses without their query strings,
- * file fingerprints and DKIM key names are ever sent: never the email itself.
+ * file fingerprints, DKIM key names and the sending server an SPF claim names are ever sent:
+ * never the email itself.
  */
-import { authChecks, failedChecks, forgedAuthFinding } from "./auth.ts";
+import { authChecks, failedChecks, forgedAuthFinding, spfMismatchFinding } from "./auth.ts";
 import { BRANDS, FREE_MAIL } from "./brands.ts";
 import { links } from "./content.ts";
 import type { DkimKey, DkimResult, DkimSignatureInfo } from "./dkim.ts";
 import { addressDomain, belongsTo, registrable } from "./domains.ts";
 import { indicators } from "./evidence.ts";
-import type { Analysis, AuthResult, AuthSummary, Finding, Severity } from "./types.ts";
+import type { Analysis, AuthResult, AuthSummary, Finding, Severity, SpfClaim, SpfResult } from "./types.ts";
 import { inspectUrl, type UrlInfo } from "./urls.ts";
 import { headline, nextSteps, score } from "./verdict.ts";
 
@@ -22,6 +23,8 @@ export interface IntelRequest {
   hashes: string[];
   /** DKIM signatures whose public keys to fetch from DNS. Older clients don't send it. */
   dkim?: DkimSignatureInfo[];
+  /** A claimed SPF pass to re-run against the domain's own record. */
+  spf?: SpfClaim;
 }
 
 export interface DomainIntel {
@@ -51,6 +54,8 @@ export interface IntelResponse {
   unavailable: string[];
   /** The DNS records of those DKIM keys. Older Workers don't send it. */
   dkim?: DkimKey[];
+  /** What the domain's SPF record says about the server the claim names. */
+  spf?: SpfClaim & { result: SpfResult };
 }
 
 export const INTEL_LIMITS = { domains: 10, urls: 20, hashes: 10, dkim: 3 };
@@ -149,55 +154,83 @@ export function intelRequest(analysis: Analysis): IntelRequest {
     urls: [...urls].slice(0, INTEL_LIMITS.urls),
     hashes: analysis.attachments.map((a) => a.sha256).slice(0, INTEL_LIMITS.hashes),
     dkim: signaturesToCheck(analysis),
+    // A plain forward's claim is about the forward itself, not the original.
+    ...(analysis.spfClaim && !analysis.partial ? { spf: analysis.spfClaim } : {}),
   };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-/** Domains change their keys from time to time, so a signature only says something about a recent email. */
-const KEYS_HOLD_DAYS = 30;
+/** Domains change their keys and their lists of servers, so a header's claims are only tested on recent mail. */
+const CLAIMS_HOLD_DAYS = 30;
 
-interface SignatureEvidence {
+interface AuthEvidence {
   auth: AuthSummary;
   /** Authentication findings the evidence overrides. */
   drop: Set<string>;
-  finding: Finding | null;
+  findings: Finding[];
 }
 
+/** SPF answers that contradict a claimed pass, and what they say about the server. */
+const SPF_CONTRADICTS: Partial<Record<SpfResult, string>> = {
+  fail: "doesn't allow that server",
+  softfail: "doesn't list that server",
+  neutral: "doesn't vouch for that server",
+  none: "publishes no SPF record",
+};
+
 /**
- * What the email's DKIM signatures, verified here, say about its Authentication-Results header.
- * A verified signature from the sender's own domain proves who sent it, whatever any header says.
- * A pass the header vouches for whose signature doesn't verify, or whose key doesn't exist, means
- * the email was changed after it arrived or the header was written by the sender.
+ * What phish-check's own checks say about the email's Authentication-Results header. A verified
+ * DKIM signature from the sender's own domain proves who sent it, whatever any header says. A
+ * claimed DKIM pass whose signature doesn't verify or whose key doesn't exist, or a claimed SPF
+ * pass for a server the domain doesn't allow, means the email was changed after it arrived or the
+ * header was written by the sender.
  */
-function signatureEvidence(analysis: Analysis, results: DkimResult[], now: Date): SignatureEvidence {
-  const unchanged: SignatureEvidence = { auth: analysis.auth, drop: new Set(), finding: null };
-  if (!analysis.dkim || analysis.partial || !results.length) return unchanged;
+function authEvidence(analysis: Analysis, intel: IntelResponse, signatures: DkimResult[], now: Date): AuthEvidence {
+  const unchanged: AuthEvidence = { auth: analysis.auth, drop: new Set(), findings: [] };
+  // For a plain forward the header and signatures are the forward's own, so they say nothing.
+  if (analysis.partial) return unchanged;
   const sender = senderDomain(analysis);
-  if (sender && results.some((r) => r.result === "pass" && registrable(r.domain) === sender)) {
-    return { auth: { ...analysis.auth, dkim: "pass", verified: true }, drop: new Set(["auth-none"]), finding: null };
+  if (sender && signatures.some((r) => r.result === "pass" && registrable(r.domain) === sender)) {
+    return { auth: { ...analysis.auth, dkim: "pass", verified: true }, drop: new Set(["auth-none"]), findings: [] };
   }
 
   const received = analysis.receivedAt ? Date.parse(analysis.receivedAt) : NaN;
-  const recent = now.getTime() - received <= KEYS_HOLD_DAYS * DAY;
+  const recent = now.getTime() - received <= CLAIMS_HOLD_DAYS * DAY;
   // A claim with no signature behind it at all was already caught offline, which is proof enough.
   if (!recent || analysis.findings.some((f) => f.rule === "auth-forged")) return unchanged;
-  for (const claim of new Set(analysis.dkim.claimed.map(registrable))) {
-    const own = results.filter((r) => registrable(r.domain) === claim);
+
+  const findings: Finding[] = [];
+  let dkimBroken = false;
+  for (const claim of new Set(analysis.dkim?.claimed.map(registrable) ?? [])) {
+    const own = signatures.filter((r) => registrable(r.domain) === claim);
     // Any genuine signature from the domain backs the claim, even one whose body changed since.
     if (!own.length || !own.every((r) => r.result === "fail" || r.result === "no-key")) continue;
     const first = own[0]!;
-    const demote = (result: AuthResult): AuthResult => (result === "pass" ? "unknown" : result);
-    return {
-      // The header's passes can't be believed now; any failures it records still stand.
-      auth: { ...analysis.auth, spf: demote(analysis.auth.spf), dkim: "fail", dmarc: demote(analysis.auth.dmarc), verified: false },
-      drop: new Set(),
-      finding: forgedAuthFinding(
-        `claims dkim=pass for ${first.domain} · ${first.result === "no-key" ? `it publishes no key "${first.selector}"` : "the signature doesn't verify"}`,
-        false,
-      ),
-    };
+    const why = first.result === "no-key" ? `it publishes no key "${first.selector}"` : "the signature doesn't verify";
+    findings.push(forgedAuthFinding(`claims dkim=pass for ${first.domain} · ${why}`, false));
+    dkimBroken = true;
+    break;
   }
-  return unchanged;
+
+  const spf = intel.spf;
+  const claim = analysis.spfClaim;
+  const spfWrong = spf && claim && spf.domain === claim.domain && spf.ip === claim.ip ? SPF_CONTRADICTS[spf.result] : undefined;
+  if (spf && spfWrong) findings.push(spfMismatchFinding(`claims spf=pass for ${spf.domain} from ${spf.ip} · ${spf.domain} ${spfWrong}`));
+
+  if (!findings.length) return unchanged;
+  const demote = (result: AuthResult): AuthResult => (result === "pass" ? "unknown" : result);
+  return {
+    // The header's other passes can't be believed now; any failures it records still stand.
+    auth: {
+      ...analysis.auth,
+      spf: spf && spfWrong ? (spf.result as AuthResult) : demote(analysis.auth.spf),
+      dkim: dkimBroken ? "fail" : signatures.some((r) => r.result === "pass") ? "pass" : demote(analysis.auth.dkim),
+      dmarc: demote(analysis.auth.dmarc),
+      verified: false,
+    },
+    drop: new Set(),
+    findings,
+  };
 }
 
 function age(registered: string | null, reference: Date): number | null {
@@ -224,7 +257,7 @@ const AUTH_CHECKS = new Set(["dmarc", "spf", "dkim"]);
  * using the keys in `intel.dkim`.
  */
 export function applyIntel(analysis: Analysis, intel: IntelResponse, now = new Date(), dkim: DkimResult[] = []): Analysis {
-  const evidence = signatureEvidence(analysis, dkim, now);
+  const evidence = authEvidence(analysis, intel, dkim, now);
   // Ages are measured to when the reader's provider received the email. The Date header won't do:
   // a sender could backdate it to make a days-old domain look registered "after" the email.
   const reference = analysis.receivedAt ? new Date(analysis.receivedAt) : now;
@@ -322,7 +355,7 @@ export function applyIntel(analysis: Analysis, intel: IntelResponse, now = new D
   const all = [
     ...analysis.findings.filter((f) => f.category !== "intel" && !evidence.drop.has(f.rule)),
     ...findings,
-    ...(evidence.finding ? [evidence.finding] : []),
+    ...evidence.findings,
   ].sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
   const result = score(all);
   const words = headline(result.verdict, all);

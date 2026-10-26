@@ -101,7 +101,7 @@ export async function handleEmail(message: ForwardableEmailMessage, env: IntelEn
   let { analysis } = found;
   try {
     const request = intelRequest(analysis);
-    if (request.domains.length || request.urls.length || request.hashes.length || request.dkim?.length) {
+    if (request.domains.length || request.urls.length || request.hashes.length || request.dkim?.length || request.spf) {
       const response = await lookup(request, env);
       analysis = applyIntel(analysis, response, undefined, await verifyDkim(found.email, response.dkim ?? []));
     }

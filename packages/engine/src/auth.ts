@@ -1,5 +1,5 @@
 import { registrable } from "./domains.ts";
-import type { AuthResult, AuthSummary, Check, Finding, ParsedEmail } from "./types.ts";
+import type { AuthResult, AuthSummary, Check, Finding, ParsedEmail, SpfClaim } from "./types.ts";
 
 const RESULTS: Record<string, AuthResult> = {
   pass: "pass",
@@ -87,6 +87,45 @@ export function claimedDkimDomains(results: string | undefined): string[] {
     if (domain) out.add(domain.toLowerCase());
   }
   return [...out];
+}
+
+/**
+ * The SPF pass an Authentication-Results header claims: the domain it checked and the address of
+ * the server it names. Gmail writes "designates <ip> as permitted sender", Microsoft "sender IP
+ * is <ip>", others client-ip= or smtp.remote-ip=.
+ */
+export function claimedSpf(results: string | undefined): SpfClaim | null {
+  const header = results ?? "";
+  for (const segment of header.split(";")) {
+    if (!/(?:^|\s)spf\s*=\s*pass\b/i.test(segment)) continue;
+    const from = segment.match(/\bsmtp\.mailfrom\s*=\s*"?([^\s;()"]+)/i)?.[1] ?? segment.match(/\bsmtp\.helo\s*=\s*([^\s;()]+)/i)?.[1];
+    const ip =
+      segment.match(/\bdesignates\s+([0-9a-f.:]+)\s+as\s+permitted\s+sender/i)?.[1] ??
+      segment.match(/\bsender\s+ip\s+is\s+([0-9a-f.:]+)/i)?.[1] ??
+      header.match(/\b(?:smtp\.remote-ip|client-ip)\s*=\s*([0-9a-f.:]+)/i)?.[1];
+    const domain = from?.split("@").pop()?.replace(/\.$/, "").toLowerCase();
+    if (domain?.includes(".") && ip && IP_ADDRESS.test(ip)) return { domain, ip: ip.toLowerCase() };
+  }
+  return null;
+}
+
+/** Four IPv4 octets, or anything with colons (IPv6); the Worker checks it properly. */
+const IP_ADDRESS = /^(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9a-f]*:[0-9a-f:.]*)$/i;
+
+/** A claimed SPF pass that the domain's own record doesn't support, for the server the claim names. */
+export function spfMismatchFinding(detail: string): Finding {
+  return {
+    id: "auth-spf-mismatch",
+    rule: "auth-spf-mismatch",
+    category: "intel",
+    severity: "medium",
+    title: "Its SPF result doesn't check out",
+    real: { text: detail },
+    explanation:
+      "A header in the email says it passed SPF, the check of which servers may send for a domain. phish-check asked that domain about the server the header itself names, and the domain doesn't allow it. Either the domain changed its list since, or the sender wrote that header to look legitimate.",
+    lensLabel: "Authentication",
+    target: { kind: "header", field: "from" },
+  };
 }
 
 export function failedChecks(auth: AuthSummary): number {

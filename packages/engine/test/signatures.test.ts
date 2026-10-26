@@ -105,6 +105,39 @@ describe("DKIM signatures as evidence", () => {
     expect(updated.findings).toEqual(analysis.findings);
   });
 
+  it("catches a header claiming SPF passed for a server the domain doesn't allow", async () => {
+    const claims = "spf=pass (sender IP is 192.0.2.10) smtp.mailfrom=shop.example; dkim=pass header.d=shop.example; dmarc=pass header.from=shop.example";
+    const analysis = await analyzeEmail(await delivered(claims));
+    expect(intelRequest(analysis).spf).toEqual({ domain: "shop.example", ip: "192.0.2.10" });
+    const answer = (result: "pass" | "fail" | "none", ip = "192.0.2.10"): IntelResponse => ({ ...empty, spf: { domain: "shop.example", ip, result } });
+
+    const refused = applyIntel(analysis, answer("fail"), RECEIVED);
+    expect(refused.findings.find((f) => f.rule === "auth-spf-mismatch")).toMatchObject({
+      severity: "medium",
+      real: { text: "claims spf=pass for shop.example from 192.0.2.10 · shop.example doesn't allow that server" },
+    });
+    // SPF now says what the domain says; the header's other passes can't be believed.
+    expect(refused.auth).toMatchObject({ spf: "fail", dkim: "unknown", dmarc: "unknown" });
+    expect(applyIntel(analysis, answer("none"), RECEIVED).findings.find((f) => f.rule === "auth-spf-mismatch")?.real?.text).toContain("publishes no SPF record");
+
+    // A matching answer, an answer about another server, or an old email: nothing to hold against it.
+    for (const updated of [applyIntel(analysis, answer("pass"), RECEIVED), applyIntel(analysis, answer("fail", "192.0.2.99"), RECEIVED), applyIntel(analysis, answer("fail"), new Date(RECEIVED.getTime() + 90 * DAY))]) {
+      expect(updated.findings.some((f) => f.rule === "auth-spf-mismatch")).toBe(false);
+      expect(updated.auth).toEqual(analysis.auth);
+    }
+  });
+
+  it("reports a false DKIM claim and a false SPF claim side by side", async () => {
+    const claims = "spf=pass (sender IP is 192.0.2.10) smtp.mailfrom=shop.example; dkim=pass header.d=shop.example; dmarc=pass header.from=shop.example";
+    const raw = await delivered(claims);
+    const email = await parseEmail(raw);
+    const analysis = await analyzeParsed(email);
+    const updated = applyIntel(analysis, { ...empty, spf: { domain: "shop.example", ip: "192.0.2.10", result: "fail" } }, RECEIVED, await verifyDkim(email, key(WRONG)));
+    expect(updated.findings.filter((f) => f.lensLabel === "Authentication").map((f) => f.rule).sort()).toEqual(["auth-signature-fail", "auth-spf-mismatch"]);
+    expect(updated.auth).toMatchObject({ spf: "fail", dkim: "fail", dmarc: "unknown" });
+    expect(updated.verdict).toBe("suspicious");
+  });
+
   it("catches a header claiming a signature the email doesn't carry, offline", async () => {
     const analysis = await analyzeEmail(await delivered("spf=pass; dkim=pass header.d=paypal.com; dmarc=pass header.from=paypal.com"));
     expect(analysis.findings.find((f) => f.rule === "auth-forged")).toMatchObject({ severity: "high", real: { text: "claims dkim=pass for paypal.com · no signature from it" } });

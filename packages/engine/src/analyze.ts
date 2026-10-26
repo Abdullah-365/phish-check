@@ -1,5 +1,5 @@
 import { attachmentChecks, readerAttachments } from "./attachments.ts";
-import { buildChecks, claimedDkimDomains, DISTRUSTED_AUTH, failedChecks, forgedAuthFinding, readAuth, unbackedClaims } from "./auth.ts";
+import { buildChecks, claimedDkimDomains, claimedSpf, DISTRUSTED_AUTH, failedChecks, forgedAuthFinding, readAuth, unbackedClaims } from "./auth.ts";
 import { BRANDS, brandsMentionedIn } from "./brands.ts";
 import {
   brandClaimFinding,
@@ -68,6 +68,8 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
   const dkim = email.rebuilt ? null : { signatures: dkimSignatures(email.raw), claimed: claimedDkimDomains(email.authenticationResults[0]) };
   const unbacked = dkim ? unbackedClaims(dkim.claimed, dkim.signatures) : [];
   const outerAuth = unbacked.length ? DISTRUSTED_AUTH : readAuth(email);
+  // Its SPF claim needs no message bytes to test, so even a rebuilt .msg keeps it.
+  const spfClaim = unbacked.length ? null : claimedSpf(email.authenticationResults[0]);
 
   // A plain "Forward" loses the original headers; only the quoted From line survives.
   // The raw text keeps the quoted header lines intact, so prefer it over the reading view.
@@ -180,5 +182,6 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
     mailProvider,
     intel: null,
     dkim,
+    spfClaim,
   };
 }

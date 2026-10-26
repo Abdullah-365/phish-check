@@ -9,7 +9,10 @@ import {
   type IntelRequest,
   type IntelResponse,
   type Listing,
+  type SpfClaim,
 } from "@phish-check/engine";
+import { dns, timeout, txtData } from "./dns.ts";
+import { evaluateSpf, parseIp, SPF_QUERIES } from "./spf.ts";
 
 /** Optional keys, set with `wrangler secret put`. Each one switches on another lookup. */
 export interface IntelEnv {
@@ -21,7 +24,6 @@ export interface IntelEnv {
   VT_KEY?: string;
 }
 
-const TIMEOUT_MS = 4000;
 /** Subrequests one check may make: under the free plan's 50, with room for the cache. */
 const SUBREQUESTS = 40;
 /** VirusTotal's free API allows 4 lookups a minute. */
@@ -49,6 +51,14 @@ function signatures(value: unknown): DkimSignatureInfo[] {
   return [...out.values()].slice(0, INTEL_LIMITS.dkim);
 }
 
+function spfQuery(value: unknown): SpfClaim | null {
+  if (!value || typeof value !== "object") return null;
+  const { domain, ip } = value as Record<string, unknown>;
+  if (typeof domain !== "string" || typeof ip !== "string") return null;
+  const query = { domain: domain.trim().toLowerCase(), ip: ip.trim().toLowerCase() };
+  return DOMAIN.test(query.domain) && query.ip.length <= 45 && parseIp(query.ip) ? query : null;
+}
+
 /** Accepts only well-formed indicators, within limits. Anything else is dropped, not echoed. */
 export function parseRequest(body: unknown): IntelRequest | null {
   if (!body || typeof body !== "object") return null;
@@ -65,19 +75,27 @@ export function parseRequest(body: unknown): IntelRequest | null {
     .map((h) => h.trim().toLowerCase())
     .filter((h) => HASH.test(h))
     .slice(0, INTEL_LIMITS.hashes);
-  return { domains: [...new Set(domains)], urls: [...new Set(urls)], hashes: [...new Set(hashes)], dkim: signatures(raw.dkim) };
+  const spf = spfQuery(raw.spf);
+  return {
+    domains: [...new Set(domains)],
+    urls: [...new Set(urls)],
+    hashes: [...new Set(hashes)],
+    dkim: signatures(raw.dkim),
+    ...(spf ? { spf } : {}),
+  };
 }
 
-const timeout = () => AbortSignal.timeout(TIMEOUT_MS);
-
-/** Caches an answer in the Workers cache, so repeated checks don't hammer the services. */
-async function cached<T>(key: string, seconds: number, work: () => Promise<T>): Promise<T> {
+/**
+ * Caches an answer in the Workers cache, so repeated checks don't hammer the services. `keep`
+ * leaves out answers that may just be a passing hiccup.
+ */
+async function cached<T>(key: string, seconds: number, work: () => Promise<T>, keep: (value: T) => boolean = () => true): Promise<T> {
   const cache = typeof caches === "undefined" ? null : (caches as unknown as { default: Cache }).default;
   const url = `https://intel.cache.phish-check/${encodeURIComponent(key)}`;
   const hit = cache ? await cache.match(url) : undefined;
   if (hit) return (await hit.json()) as T;
   const value = await work();
-  await cache?.put(url, new Response(JSON.stringify(value), { headers: { "content-type": "application/json", "cache-control": `max-age=${seconds}` } }));
+  if (keep(value)) await cache?.put(url, new Response(JSON.stringify(value), { headers: { "content-type": "application/json", "cache-control": `max-age=${seconds}` } }));
   return value;
 }
 
@@ -132,28 +150,6 @@ async function rdap(domain: string): Promise<Rdap> {
   const card = data.entities?.find((e) => e.roles?.includes("registrar"))?.vcardArray?.[1];
   const name = card?.find((field) => field[0] === "fn")?.[3];
   return { found: true, registered, registrar: typeof name === "string" ? name : null };
-}
-
-interface DnsAnswer {
-  status: number;
-  records: { type: number; data: string }[];
-}
-
-/** A DNS lookup over HTTPS through Cloudflare's resolver. Status 3 means the name doesn't exist. */
-async function dns(name: string, type: "MX" | "A" | "TXT"): Promise<DnsAnswer> {
-  const res = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`, {
-    headers: { accept: "application/dns-json" },
-    signal: timeout(),
-  });
-  if (!res.ok) throw new Error(`DNS answered ${res.status}`);
-  const data = (await res.json()) as { Status: number; Answer?: { type: number; data?: string }[] };
-  return { status: data.Status, records: (data.Answer ?? []).map((a) => ({ type: a.type, data: String(a.data ?? "") })) };
-}
-
-/** A TXT record's text. DNS stores long records as several quoted strings, which are joined back up. */
-function txtData(data: string): string {
-  const parts = [...data.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]!.replace(/\\(\d{3}|.)/g, (_, c: string) => (c.length === 3 ? String.fromCharCode(Number(c)) : c)));
-  return parts.length ? parts.join("") : data;
 }
 
 /**
@@ -287,7 +283,7 @@ async function virusTotal(hash: string, key: string): Promise<string | null> {
  *
  * Workers on the free plan may make 50 subrequests per request, so lookups draw on a budget.
  * Each claims its worst case when it starts, and they start strongest evidence first:
- * blocklists, then files, then DKIM keys, then domains, then the per-link services.
+ * blocklists, then files, then DKIM keys and SPF, then domains, then the per-link services.
  */
 export async function lookup(request: IntelRequest, env: IntelEnv): Promise<IntelResponse> {
   const sources = new Set<string>();
@@ -333,6 +329,12 @@ export async function lookup(request: IntelRequest, env: IntelEnv): Promise<Inte
     }),
   );
 
+  const { spf } = request;
+  // An inconclusive answer may be a passing DNS hiccup, so it isn't kept.
+  const spfTask = spf
+    ? attempt("DNS", SPF_QUERIES, () => cached(`spf:${spf.domain}:${spf.ip}`, 3_600, () => evaluateSpf(spf.domain, spf.ip), (r) => r !== "temperror"))
+    : null;
+
   const domainsTask = Promise.all(
     request.domains.map(async (domain): Promise<DomainIntel> => {
       const [registry, mail] = await Promise.all([
@@ -368,13 +370,14 @@ export async function lookup(request: IntelRequest, env: IntelEnv): Promise<Inte
     }
   })();
 
-  const [domains, , hashes, keys] = await Promise.all([domainsTask, urlsTask, hashesTask, keysTask]);
+  const [domains, , hashes, keys, spfResult] = await Promise.all([domainsTask, urlsTask, hashesTask, keysTask, spfTask]);
   return {
     domains,
     urls: [...listings].map(([url, found]) => ({ url, listings: found })),
     hashes,
     // A key that couldn't be looked up is left out, so it isn't mistaken for one that doesn't exist.
     dkim: keys.filter((k) => k !== null),
+    ...(spf && spfResult ? { spf: { ...spf, result: spfResult } } : {}),
     // Sorted, so the report lists services the same way whichever answered first.
     sources: [...sources].sort(),
     unavailable: [...unavailable].filter((s) => !sources.has(s)).sort(),

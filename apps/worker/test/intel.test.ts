@@ -33,6 +33,7 @@ function fakeNetwork(registeredDaysAgo: number) {
       if (name === "s1._domainkey.shop.test") return json({ Status: 0, Answer: [{ type: 5, data: "s1.keys.test." }, { type: 16, data: '"v=DKIM1; k=rsa; " "p=MIIBIjAN"' }] });
       if (name === "news._domainkey.shop.test") return json({ Status: 0, Answer: [{ type: 16, data: '"v=spf1 -all"' }] });
       if (name === "down._domainkey.shop.test") return json({ Status: 2 });
+      if (name === "shop.test") return json({ Status: 0, Answer: [{ type: 16, data: '"v=spf1 ip4:192.0.2.0/24 -all"' }] });
       return json({ Status: 3 });
     }
     if (url.startsWith("https://cloudflare-dns.com/")) {
@@ -62,6 +63,13 @@ describe("parseRequest", () => {
         hashes: ["A".repeat(64), "not-a-hash"],
       }),
     ).toEqual({ domains: ["fresh.test"], urls: ["https://evil.test/login"], hashes: ["a".repeat(64)], dkim: [] });
+  });
+
+  it("keeps an SPF claim only with a real domain and IP address", () => {
+    expect(parseRequest({ spf: { domain: "Shop.test", ip: "2001:DB8::25" } })?.spf).toEqual({ domain: "shop.test", ip: "2001:db8::25" });
+    for (const spf of [{ domain: "shop.test", ip: "192.0.2" }, { domain: "not a domain", ip: "192.0.2.1" }, { domain: "shop.test" }, "shop.test"]) {
+      expect(parseRequest({ spf })).not.toHaveProperty("spf");
+    }
   });
 
   it("keeps well-formed DKIM key names only", () => {
@@ -126,6 +134,14 @@ describe("lookup", () => {
       { domain: "shop.test", selector: "news", record: null },
     ]);
     expect(result.sources).toEqual(["DNS"]);
+  });
+
+  it("asks the domain's SPF record about the server a header claims passed", async () => {
+    const allowed = await lookup({ domains: [], urls: [], hashes: [], spf: { domain: "shop.test", ip: "192.0.2.9" } }, {});
+    expect(allowed.spf).toEqual({ domain: "shop.test", ip: "192.0.2.9", result: "pass" });
+    const refused = await lookup({ domains: [], urls: [], hashes: [], spf: { domain: "shop.test", ip: "203.0.113.9" } }, {});
+    expect(refused.spf).toEqual({ domain: "shop.test", ip: "203.0.113.9", result: "fail" });
+    expect(refused.sources).toEqual(["DNS"]);
   });
 
   it("matches big shared platforms by exact page only", async () => {

@@ -28,14 +28,15 @@ export type IntelState =
   | { status: "unavailable" };
 
 /**
- * Asks the Worker about the email's domains, links and attachment fingerprints, and for the keys
- * its DKIM signatures name, then checks the signatures here and folds it all into the analysis.
- * The email itself is never sent.
+ * Asks the Worker about the email's domains, links and attachment fingerprints, for the keys its
+ * DKIM signatures name, and whether the server its headers claim passed SPF really may send for
+ * that domain. The signatures are checked here, and it's all folded into the analysis. The email
+ * itself is never sent.
  */
 export async function checkOnline(analysis: Analysis, email: ParsedEmail): Promise<{ analysis: Analysis; response: IntelResponse }> {
   const engine = await loadEngine();
   const request = engine.intelRequest(analysis);
-  if (!request.domains.length && !request.urls.length && !request.hashes.length && !request.dkim?.length) {
+  if (!request.domains.length && !request.urls.length && !request.hashes.length && !request.dkim?.length && !request.spf) {
     const response: IntelResponse = { domains: [], urls: [], hashes: [], sources: [], unavailable: [] };
     return { analysis, response };
   }

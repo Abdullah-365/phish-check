@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimedDkimDomains, readAuth } from "../src/auth.ts";
+import { claimedDkimDomains, claimedSpf, readAuth } from "../src/auth.ts";
 import { BRANDS } from "../src/brands.ts";
 import { extractContent } from "../src/content.ts";
 import { belongsTo, claimedHost, imitatedBrand, registrable, unicodeHost } from "../src/domains.ts";
@@ -106,6 +106,22 @@ describe("authentication results", () => {
       "mail.shop.example",
     ]);
     expect(claimedDkimDomains(undefined)).toEqual([]);
+  });
+
+  it("reads the SPF pass a header claims and the server address it names", () => {
+    expect(claimedSpf("spf=pass (sender IP is 40.107.22.81) smtp.mailfrom=Outlook.com; dkim=pass (signature was verified) header.d=outlook.com")).toEqual({
+      domain: "outlook.com",
+      ip: "40.107.22.81",
+    });
+    expect(claimedSpf("mx.google.com; spf=pass (google.com: domain of bounce@news.shop.example designates 2a00:1450:4864:20::22f as permitted sender) smtp.mailfrom=bounce@news.shop.example")).toEqual({
+      domain: "news.shop.example",
+      ip: "2a00:1450:4864:20::22f",
+    });
+    expect(claimedSpf("mx.cloudflare.net; spf=pass smtp.mailfrom=a@shop.example; arc=none smtp.remote-ip=192.0.2.4")).toEqual({ domain: "shop.example", ip: "192.0.2.4" });
+    // No pass, no address, or a cut-off address: nothing to test.
+    expect(claimedSpf("mx.google.com; spf=softfail (designates 192.0.2.4 as permitted sender) smtp.mailfrom=a@shop.example")).toBeNull();
+    expect(claimedSpf("mx.example.net; spf=pass smtp.mailfrom=a@shop.example")).toBeNull();
+    expect(claimedSpf("spf=pass (sender IP is 69.175.12.) smtp.mailfrom=shop.example")).toBeNull();
   });
 
   it("doesn't treat Microsoft's bestguesspass as a real DMARC pass", () => {
