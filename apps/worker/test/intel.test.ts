@@ -21,7 +21,7 @@ function fakeNetwork(registeredDaysAgo: number) {
     if (url.startsWith("https://cloudflare-dns.com/")) {
       return url.includes("gone.test") ? json({ Status: 3 }) : json({ Status: 0, Answer: [{ type: 15 }] });
     }
-    if (url === "https://openphish.com/feed.txt") {
+    if (url === "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt") {
       return new Response("https://evil.test/login\nhttps://storage.googleapis.com/kit/index.html\nhttps://drive.google.com/file/d/bad/view\n");
     }
     if (url.startsWith("https://www.virustotal.com/api/v3/files/")) {

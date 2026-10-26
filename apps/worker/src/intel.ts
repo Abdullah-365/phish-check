@@ -148,11 +148,16 @@ const normalise = (url: string) => {
   }
 };
 
-/** OpenPhish's free community feed of live phishing pages, refreshed hourly. */
+/**
+ * OpenPhish's free community feed of live phishing pages, refreshed hourly. It's published on
+ * GitHub now; the old openphish.com/feed.txt address only redirects there, costing a request.
+ */
+const OPENPHISH_FEED = "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt";
+
 async function openPhish(): Promise<Feed> {
   if (feedMemo && Date.now() - feedMemo.at < 60 * 60 * 1000) return feedMemo.feed;
   const text = await cached("openphish-feed", 3600, async () => {
-    const res = await fetch("https://openphish.com/feed.txt", { signal: timeout() });
+    const res = await fetch(OPENPHISH_FEED, { headers: { "user-agent": USER_AGENT }, signal: timeout() });
     if (!res.ok) throw new Error(`OpenPhish answered ${res.status}`);
     return res.text();
   });

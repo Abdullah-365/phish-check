@@ -1,5 +1,8 @@
 # Served by Cloudflare Workers static assets. The page never loads anything from the analysed email.
+# no-transform stops Cloudflare from rewriting responses, such as injecting its Web Analytics
+# script; the rest is Cloudflare's default caching, unchanged.
 /*
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
   Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer

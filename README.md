@@ -1,5 +1,7 @@
 # phish-check
 
+**Live at [phish.abdullah1.dev](https://phish.abdullah1.dev)**
+
 Check a suspicious email: paste its original source or drop the file, and get a verdict (**Likely phishing**, **Suspicious**, or **No red flags found**) with the reasons behind it. The email is analysed in your browser and never leaves your device. Optional online checks look up only its domains, link addresses and file fingerprints.
 
 The signature feature is the **X-ray lens**: the email is drawn as it looked in your inbox, and a lens follows your cursor to show what's really underneath. You see the real sender address with the swapped character highlighted, where each button really goes, and the invisible tracking pixel.
@@ -76,6 +78,7 @@ Blocklists are matched by exact page, and also by whole host for sites that are 
 
 - The email itself is never uploaded or stored. There are no cookies and no analytics.
 - The Worker keeps no request logs: Workers Logs are switched off in `wrangler.jsonc`, so visitors' IP addresses aren't stored.
+- Every response carries `Cache-Control: no-transform`, so Cloudflare can't rewrite pages, for example by injecting its Web Analytics script.
 - With online checks on (the default, with a switch next to the intake), the browser sends only the domains of the sender and links, link addresses (including links found inside attachments) with their query strings removed, and SHA-256 fingerprints of attachments. When a link's path carries the reader's own email address, plainly or in base64, only the site is sent. Domains of big brands, mailbox providers and shared hosting platforms aren't looked up.
 - Neither the browser nor the Worker ever opens a link or loads an image from an analysed email. Online checks ask registries, DNS and blocklists about a link; they never visit it.
 - Attachments are read as bytes and never run.
@@ -119,4 +122,4 @@ npx wrangler secret put VT_KEY        # VirusTotal, used for file fingerprints o
 | 3 | Web app: X-ray lens, paste, drop and samples, help for finding the source, Analyst view | ✅ (Outlook `.msg` files not yet) |
 | 4 | Engine tuned on real phishing; online checks through the Worker (domain age, DNS, phishing feeds, file reputation) | ✅ |
 | 5 | Forward-to-check by email | |
-| 6 | Ship at `phish.abdullah1.dev` | |
+| 6 | Ship at `phish.abdullah1.dev` | ✅ Live |
