@@ -40,7 +40,7 @@ Measured with `scripts/evaluate.mjs` against real phishing caught by honeypots (
 |---|---|---|---|
 | Dev: 841 phishing, 2,750 legitimate | 88.8% | 65.2% | 0.7% (0.1% "Likely phishing") |
 | Held out: 500 phishing, 1,400 legitimate | **90.8%** | 64.2% | **0.7%** (none "Likely phishing") |
-| Held out, engine only | 78.2% | 35.8% | 0.7% (none "Likely phishing") |
+| Held out, engine only | 78.4% | 35.8% | 0.7% (none "Likely phishing") |
 
 "Phishing caught" means a verdict of Likely phishing or Suspicious; an email the engine can't read counts as missed. Read the numbers with these limits in mind:
 
