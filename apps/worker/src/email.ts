@@ -77,7 +77,6 @@ function contents(parsed: ParsedEmail): string {
 
 export async function handleEmail(message: ForwardableEmailMessage, env: IntelEnv): Promise<void> {
   if (skipReason(message) || !allowed(message.from.toLowerCase())) return;
-  const subject = message.headers.get("subject") ?? "";
 
   const reply = async (content: ReplyContent) => {
     const base = { from: message.to, subject: content.subject, text: content.text, html: content.html };
@@ -93,17 +92,17 @@ export async function handleEmail(message: ForwardableEmailMessage, env: IntelEn
     }
   };
 
-  if (message.rawSize > MAX_FORWARD) return reply(noticeReply("too-large", subject));
+  if (message.rawSize > MAX_FORWARD) return reply(noticeReply("too-large"));
   const raw = await readCapped(message.raw, MAX_FORWARD);
-  if (!raw) return reply(noticeReply("too-large", subject));
+  if (!raw) return reply(noticeReply("too-large"));
 
   let found: Awaited<ReturnType<typeof original>>;
   try {
     found = await original(raw);
   } catch {
-    return reply(noticeReply("unreadable", subject));
+    return reply(noticeReply("unreadable"));
   }
-  if ("seen" in found) return reply(noticeReply("not-a-forward", subject, found.seen));
+  if ("seen" in found) return reply(noticeReply("not-a-forward", found.seen));
 
   let { analysis } = found;
   try {
@@ -115,5 +114,5 @@ export async function handleEmail(message: ForwardableEmailMessage, env: IntelEn
   } catch {
     // The verdict stands without online checks.
   }
-  return reply(verdictReply(analysis, subject));
+  return reply(verdictReply(analysis));
 }

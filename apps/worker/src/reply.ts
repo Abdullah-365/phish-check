@@ -48,11 +48,11 @@ const rich = (text: string) => escapeHtml(defang(text)).replace(/`([^`]+)`/g, "<
 const advice = (text: string) => text.replace(/`([^`]+)`/g, '"$1"');
 const richAdvice = (text: string) => escapeHtml(text).replace(/`([^`]+)`/g, "<b>$1</b>");
 
-/** "Re:" plus the forward's subject, cut to a sane length; Cloudflare encodes the header itself. */
-export function replySubject(subject: string): string {
-  const clean = subject.replace(/[\r\n]+/g, " ").trim().slice(0, 150);
-  return /^re:/i.test(clean) ? clean : `Re: ${clean || "your phish-check"}`;
-}
+/*
+ * Replies don't repeat the forward's subject. It's usually the phish's own lure ("Action required:
+ * your account has been limited"), and in a live test Gmail hid a reply carrying one. Mail apps that
+ * thread by In-Reply-To, which Cloudflare sets, still show the reply with the forward.
+ */
 
 const FOOTER_TEXT = `For the full X-ray report, save the email as a file and drop it on ${SITE}.\nphish-check read the email you forwarded to write this reply and kept none of it.`;
 const FOOTER_HTML = `<p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#5f6368">For the full X-ray report, save the email as a file and drop it on <a href="${SITE}" style="color:#1a73e8">phish.abdullah1.dev</a>.<br>phish-check read the email you forwarded to write this reply and kept none of it.</p>`;
@@ -61,7 +61,7 @@ function wrap(body: string): string {
   return `<div style="font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:600px;color:#202124;font-size:15px;line-height:1.5">${body}${FOOTER_HTML}</div>`;
 }
 
-export function verdictReply(analysis: Analysis, subject: string): ReplyContent {
+export function verdictReply(analysis: Analysis): ReplyContent {
   const verdict = VERDICT[analysis.verdict];
   const findings = analysis.findings.filter((f) => f.severity !== "info").slice(0, MAX_FINDINGS);
   const more = analysis.findings.filter((f) => f.severity !== "info").length - findings.length;
@@ -104,19 +104,22 @@ export function verdictReply(analysis: Analysis, subject: string): ReplyContent 
       online ? `<p style="margin:16px 0 0;font-size:13px;color:#5f6368">${escapeHtml(online)}</p>` : "",
     ].join(""),
   );
-  return { subject: replySubject(subject), text, html };
+  return { subject: `phish-check verdict: ${verdict.name}`, text, html };
 }
 
 const NOTICES = {
   "not-a-forward": {
+    subject: "phish-check: no forwarded email found",
     title: "We couldn't find a forwarded email in your message.",
     body: "Forward the suspicious email as an attachment: in Gmail, open it and choose More, then Forward as attachment; in Outlook, choose More actions, then Forward as attachment. Attaching it as an .eml or .msg file works too.",
   },
   unreadable: {
+    subject: "phish-check: couldn't read your forward",
     title: "We couldn't read the email you forwarded.",
     body: "Try forwarding it as an attachment instead, or save it as a file and drop it on phish.abdullah1.dev.",
   },
   "too-large": {
+    subject: "phish-check: that email is too large",
     title: "That email is too large to check by email.",
     body: "Forwards over 5 MB aren't read. Save the email as a file and drop it on phish.abdullah1.dev instead.",
   },
@@ -125,11 +128,11 @@ const NOTICES = {
 export type Notice = keyof typeof NOTICES;
 
 /** `seen` says what the message did carry, so the sender can tell why it wasn't recognised. */
-export function noticeReply(notice: Notice, subject: string, seen?: string): ReplyContent {
-  const { title, body } = NOTICES[notice];
+export function noticeReply(notice: Notice, seen?: string): ReplyContent {
+  const { subject, title, body } = NOTICES[notice];
   const detail = seen ? defang(seen) : null;
   return {
-    subject: replySubject(subject),
+    subject,
     text: `${title}\n\n${detail ? `${detail}\n\n` : ""}${body}\n\n${FOOTER_TEXT}`,
     html: wrap(
       `<p style="margin:0 0 8px;font-size:17px;font-weight:600">${escapeHtml(title)}</p>${detail ? `<p style="margin:0 0 8px">${escapeHtml(detail)}</p>` : ""}<p style="margin:0">${escapeHtml(body)}</p>`,

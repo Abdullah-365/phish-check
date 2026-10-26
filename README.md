@@ -89,7 +89,7 @@ Forward a suspicious email to **check@abdullah1.dev** and the verdict comes back
 
 The handler is `email()` in `apps/worker/src/index.ts` (code in `email.ts`, reply text in `reply.ts`). It runs because of one Email Routing rule, set in the Cloudflare dashboard: **Email** → **Email Routing** → **Routing rules** → **Create address**, custom address `check`, action **Send to a Worker**, destination `phish-check`. Live tests from Gmail got replies within 2 seconds, DKIM-signed for `abdullah1.dev`. Two things the tests showed:
 
-- A reply that warns about a phish can itself land in Spam, since it has to talk about the phish.
+- Replies don't repeat the forward's subject. Gmail hid a reply whose subject repeated the phish's lure ("Re: Fwd: Action required: your account has been limited"), while the same verdict reached the inbox when the subject was neutral. So replies are titled by their verdict ("phish-check verdict: Likely phishing"), and mail apps that thread by In-Reply-To still group them with the forward.
 - A file attached through Gmail's API (not its web app) is sent as an unnamed HTML file without the original's headers, so it can't be checked. The reply then says which attachments arrived, so the sender can tell why. Gmail's own **Forward as attachment** sends the whole original.
 
 **CPU time.** A forwarded email is analysed inside the Worker. On the free plan, Cloudflare gives each email 10 ms of CPU; a typical phishing email needs about 7 ms, but long or attachment-heavy ones need 20 ms or more, run out, and get no reply. The Workers Paid plan raises the limit to 30 seconds. The website's own checks run in the visitor's browser and aren't affected.

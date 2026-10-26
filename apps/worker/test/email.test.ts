@@ -54,7 +54,7 @@ describe("forward-to-check by email", () => {
     expect(sent).toHaveLength(1);
     const reply = sent[0]!;
     expect(reply.from).toBe("check@abdullah1.dev");
-    expect(reply.subject).toBe("Re: Fwd: Action required");
+    expect(reply.subject).toBe("phish-check verdict: Likely phishing");
     expect(reply.headers).toEqual({ "Auto-Submitted": "auto-replied" });
     expect(reply.text).toMatch(/^phish-check verdict: Likely phishing/);
     expect(reply.html).toContain("Likely phishing");
