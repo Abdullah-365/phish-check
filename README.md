@@ -98,7 +98,8 @@ For local online checks with the optional services, put the keys in a `.dev.vars
 
 ## Deployment
 
-- **Deploys:** Cloudflare Workers Builds (Git integration). A push to `main` builds and deploys. Build command: `npm run build`. Deploy command: `npx wrangler deploy`.
+- **Deploys:** Cloudflare Workers Builds (Git integration). A push to `main` builds and deploys. To connect it: Workers & Pages → Create → Import a repository → this repo. Build command: `npm run build`. Deploy command: `npx wrangler deploy`. The build runs on Node 24, pinned in `.node-version`.
+- **Domain:** the Worker serves `phish.abdullah1.dev` through a custom-domain route in `wrangler.jsonc`. Cloudflare creates that DNS record and its certificate on the first deploy and leaves the zone's other records alone.
 - **Tests:** GitHub Actions (`.github/workflows/test.yml`) runs type checks, tests and the build on every push and pull request. It needs no secrets.
 - **API keys** are Worker secrets in Cloudflare, never in this repo. All three are optional: RDAP, DNS and OpenPhish work without any.
 

@@ -14,7 +14,8 @@
   // address. `wrangler tail` still streams live logs for debugging without keeping them.
   "observability": {
     "enabled": false
-  }
-  // Ship phase: serve on the custom domain instead of *.workers.dev.
-  // "routes": [{ "pattern": "phish.abdullah1.dev", "custom_domain": true }]
+  },
+  // Served on its own subdomain. On deploy, Cloudflare creates this one DNS record and its
+  // certificate; the rest of abdullah1.dev's records are left alone.
+  "routes": [{ "pattern": "phish.abdullah1.dev", "custom_domain": true }]
 }
