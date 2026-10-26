@@ -150,6 +150,31 @@ describe("forward-to-check by email", () => {
     const { message, sent } = inbound(sample("legit-order-confirmation.eml"), { from: "not-a-forward@inbox.example" });
     await handleEmail(message, {});
     expect(sent[0]?.text).toMatch(/^We couldn't find a forwarded email/);
+    expect(sent[0]?.text).toContain("Your message had no attachments.");
+  });
+
+  it("says which attachments it found when none of them is an email", async () => {
+    // Gmail's API turns an attached .eml into an unnamed HTML file when it sends the message.
+    const raw = [
+      "From: Alex Chen <alex@inbox.example>",
+      "To: check@abdullah1.dev",
+      "Subject: Is this real?",
+      'Content-Type: multipart/mixed; boundary="b1"',
+      "",
+      "--b1",
+      "Content-Type: text/plain",
+      "",
+      "See attached.",
+      "--b1",
+      'Content-Type: text/html; charset="utf-8"',
+      "Content-Disposition: attachment",
+      "",
+      "<p>Dear Customer, visit evil.example now</p>",
+      "--b1--",
+    ].join("\r\n");
+    const { message, sent } = inbound(raw, { from: "html-file@inbox.example" });
+    await handleEmail(message, {});
+    expect(sent[0]?.text).toContain("Your message had one attachment, an unnamed file (text/html, 1 KB), but it isn't an email.");
   });
 
   it("says so when the forward can't be read", async () => {
