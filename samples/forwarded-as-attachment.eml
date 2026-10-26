@@ -1,0 +1,53 @@
+Delivered-To: check@phish-check.example
+Received: by 2002:a05:6a00:1a8c with SMTP id x12csp902pfv;
+        Sat, 24 Oct 2026 10:05:12 -0700 (PDT)
+Authentication-Results: mx.phish-check.example;
+       dkim=pass header.i=@inbox.example header.s=in1 header.b=Ab12Cd34;
+       spf=pass (phish-check.example: domain of alex@inbox.example designates 192.0.2.80 as permitted sender) smtp.mailfrom=alex@inbox.example;
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=inbox.example
+Return-Path: <alex@inbox.example>
+Received: from out.inbox.example (out.inbox.example. [192.0.2.80])
+        by mx.phish-check.example with ESMTPS id 0a1b2c3d4e
+        for <check@phish-check.example>;
+        Sat, 24 Oct 2026 10:05:11 -0700 (PDT)
+From: Alex Chen <alex@inbox.example>
+To: check@phish-check.example
+Subject: Fwd: Action required: your account has been limited
+Date: Sat, 24 Oct 2026 13:05:09 -0400
+Message-ID: <fwd-attach-001@inbox.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b6_outer"
+
+--b6_outer
+Content-Type: text/plain; charset=utf-8
+
+Is this real?
+
+--b6_outer
+Content-Type: message/rfc822
+Content-Disposition: attachment; filename="Action required.eml"
+
+Delivered-To: alex@inbox.example
+Authentication-Results: mx.inbox.example;
+       dkim=none;
+       spf=softfail (inbox.example: domain of transitioning noreply@paypa1-security.test does not designate 198.51.100.77 as permitted sender) smtp.mailfrom=noreply@paypa1-security.test;
+       dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=paypa1-security.test
+Return-Path: <noreply@paypa1-security.test>
+Received: from vps-77.hosting.test (vps-77.hosting.test. [198.51.100.77])
+        by mx.inbox.example with ESMTP id 3f4e5d6c7b
+        for <alex@inbox.example>;
+        Fri, 23 Oct 2026 02:41:18 -0700 (PDT)
+From: "PayPal Service" <service@paypa1-security.test>
+Reply-To: <account-review@mailbox.test>
+To: alex@inbox.example
+Subject: Action required: your account has been limited
+Date: Fri, 23 Oct 2026 09:41:12 +0000
+Message-ID: <20261023094112.77@vps-77.hosting.test>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<p>Dear Customer,</p>
+<p>We noticed unusual activity on your account and have temporarily limited it.</p>
+<p><a href="http://paypa1-security.test/login/verify?u=alex%40inbox.example&amp;t=8f2c91">https://www.paypal.com/signin</a></p>
+
+--b6_outer--

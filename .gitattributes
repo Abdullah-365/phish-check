@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+# Sample emails must stay byte-for-byte identical (header parsing, future DKIM checks)
+*.eml -text
+*.msg binary

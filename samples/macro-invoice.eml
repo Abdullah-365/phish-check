@@ -1,0 +1,42 @@
+Delivered-To: alex@inbox.example
+Received: by 2002:a05:6a00:1a8c with SMTP id x12csp702pfv;
+        Sat, 24 Oct 2026 07:20:31 -0700 (PDT)
+Authentication-Results: mx.inbox.example;
+       dkim=fail (body hash did not verify) header.i=@billing-docs.test header.s=default header.b=Rr2Xn7qa;
+       spf=pass (inbox.example: domain of accounts@billing-docs.test designates 198.51.100.140 as permitted sender) smtp.mailfrom=accounts@billing-docs.test;
+       dmarc=fail (p=QUARANTINE sp=QUARANTINE dis=QUARANTINE) header.from=billing-docs.test
+Return-Path: <accounts@billing-docs.test>
+Received: from smtp.billing-docs.test (smtp.billing-docs.test. [198.51.100.140])
+        by mx.inbox.example with ESMTP id 2b3c4d5e6f
+        for <alex@inbox.example>;
+        Sat, 24 Oct 2026 07:20:30 -0700 (PDT)
+From: Accounts Payable <accounts@billing-docs.test>
+To: alex@inbox.example
+Subject: Overdue invoice INV-20931 - payment needed today
+Date: Sat, 24 Oct 2026 14:20:28 +0000
+Message-ID: <inv-20931@billing-docs.test>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b4_inv"
+
+--b4_inv
+Content-Type: text/plain; charset=utf-8
+
+Hello,
+
+Please find the overdue invoice attached. Open the document and click
+"Enable Content" to view the full payment details.
+
+Payment is required today to avoid late fees.
+
+Regards,
+Accounts Payable
+
+--b4_inv
+Content-Type: application/vnd.ms-word.document.macroEnabled.12; name="INV-20931.docm"
+Content-Disposition: attachment; filename="INV-20931.docm"
+Content-Transfer-Encoding: base64
+
+VGhpcyBpcyBhIGhhcm1sZXNzIHBsYWNlaG9sZGVyIHVzZWQgYnkgcGhpc2gtY2hlY2sgdGVzdHMu
+IEl0IGNvbnRhaW5zIG5vIG1hY3JvcyBvciBjb2RlLgo=
+
+--b4_inv--

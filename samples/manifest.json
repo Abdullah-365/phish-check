@@ -1,0 +1,81 @@
+[
+  {
+    "file": "legit-order-confirmation.eml",
+    "expected": "no-red-flags",
+    "findings": [],
+    "description": "Shipping notice from a shop: SPF, DKIM and DMARC pass, links stay on the sender's own domain."
+  },
+  {
+    "file": "lookalike-paypal.eml",
+    "expected": "phishing",
+    "findings": [
+      "sender-disguise",
+      "reply-elsewhere",
+      "link-mismatch",
+      "credentials",
+      "pressure",
+      "tracker",
+      "auth-dmarc-fail"
+    ],
+    "description": "Lookalike domain (paypa1), DMARC fail, Reply-To elsewhere, a button that shows paypal.com but points to the lookalike, tracking pixel, 24-hour threat."
+  },
+  {
+    "file": "display-name-microsoft.eml",
+    "expected": "phishing",
+    "findings": [
+      "sender-disguise",
+      "link-lookalike",
+      "credentials",
+      "pressure",
+      "link-lure-host"
+    ],
+    "description": "Display name says Microsoft 365 but the address is a free-mail account. Authentication passes, so only the content and identity checks catch it."
+  },
+  {
+    "file": "macro-invoice.eml",
+    "expected": "phishing",
+    "findings": [
+      "attachment-macro",
+      "macro-lure",
+      "pressure",
+      "auth-dmarc-fail",
+      "invoice"
+    ],
+    "description": "Macro-enabled .docm attachment with an \"Enable Content\" lure, DKIM and DMARC fail. The attachment bytes are a harmless text placeholder."
+  },
+  {
+    "file": "bec-gift-cards.eml",
+    "expected": "suspicious",
+    "findings": [
+      "money",
+      "reply-elsewhere"
+    ],
+    "description": "CEO impersonation from free mail asking for gift cards, Reply-To on another domain, secrecy. Authentication passes and there are no links, so the evidence is all in the wording."
+  },
+  {
+    "file": "forwarded-as-attachment.eml",
+    "expected": "phishing",
+    "findings": [
+      "sender-disguise",
+      "reply-elsewhere",
+      "link-mismatch",
+      "pressure",
+      "auth-dmarc-fail"
+    ],
+    "description": "A user's \"Forward as attachment\" of the PayPal lookalike. The outer email is clean; the verdict must come from the embedded original.",
+    "embeddedMessages": 1
+  },
+  {
+    "file": "inline-forward.eml",
+    "expected": "phishing",
+    "findings": [
+      "sender-disguise",
+      "link-lookalike",
+      "credentials",
+      "pressure",
+      "link-lure-host"
+    ],
+    "partial": true,
+    "description": "A plain inline forward of the Microsoft lure. The original headers are gone, so sender checks are limited, but the quoted sender and the link are enough."
+  }
+]

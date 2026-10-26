@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>phish-check: see through any email</title>
+    <meta name="description" content="Paste or drop a suspicious email and see who really sent it, where its links go and what it's hiding. The email is checked in your browser and never uploaded." />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Sets the colour theme before first paint. External because the CSP forbids inline scripts. -->
+    <script src="/theme.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "@phish-check/engine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Runtime-agnostic phishing analysis engine (browser + Cloudflare Workers).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "domhandler": "^6.0.1",
+    "htmlparser2": "^12.0.0",
+    "postal-mime": "^4.1.4",
+    "tldts": "^7.4.19"
+  }
+}

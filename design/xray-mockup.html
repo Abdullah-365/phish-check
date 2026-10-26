@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>phish-check mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400..700&family=Mona+Sans:wdth,wght@75..125,200..900&display=swap" rel="stylesheet" />
+<style>
+@property --r { syntax: "<length>"; inherits: true; initial-value: 84px; }
+
+:root {
+  --bg: #0b0b0c; --bg-2: #121214; --bg-3: #19191c; --bg-4: #222226;
+  --line: rgb(255 255 255 / .08); --line-2: rgb(255 255 255 / .14); --line-3: rgb(255 255 255 / .28);
+  --fg: #f4f4f2; --fg-2: #a8a8ae; --fg-3: #7a7a81;
+  --red: #ff4d2e; --on-red: #170402; --red-soft: rgb(255 77 46 / .18);
+  --red-text: #ff6a4d; --amber-text: #ffbf47; --green: #4cd787; --green-text: #5fe39a;
+  --paper: #fbfbf9; --paper-ink: #1b1b1e; --paper-2: #6a6a71; --paper-3: #e7e7e2;
+  --xray: #0e0f11; --xray-ink: #e7e7ea; --xray-2: #84848c;
+  --sans: "Mona Sans", ui-sans-serif, system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --ease: cubic-bezier(.2, .7, .1, 1);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f2f2ef; --bg-2: #e9e9e5; --bg-3: #ffffff; --bg-4: #dededa;
+  --line: rgb(0 0 0 / .08); --line-2: rgb(0 0 0 / .14); --line-3: rgb(0 0 0 / .3);
+  --fg: #0d0d0e; --fg-2: #4f4f55; --fg-3: #707077;
+  --red-soft: rgb(255 77 46 / .16); --red-text: #c4290e; --amber-text: #8f5b00; --green-text: #17703d;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: clip; transition: background .3s, color .3s; }
+::selection { background: var(--red); color: var(--on-red); }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; border-radius: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: clamp(16px, 4vw, 40px); }
+.label { margin: 0; font: 500 11px/1.4 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3); }
+kbd { font: 500 12px/1 var(--mono); padding: 3px 7px; border-radius: 6px; background: var(--bg-3); border: 1px solid var(--line-2); border-bottom-width: 2px; color: var(--fg); white-space: nowrap; }
+code { font: 13px var(--mono); }
+
+/* nav */
+.nav { display: flex; align-items: center; justify-content: space-between; height: 76px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 720; font-stretch: 115%; font-size: 17px; letter-spacing: -.02em; }
+.brand svg { width: 24px; height: 24px; }
+.nav-links { display: flex; align-items: center; gap: 2px; font-size: 14px; color: var(--fg-2); }
+.nav-links a, .icon-btn { padding: 8px 12px; border-radius: 9px; transition: color .2s, background .2s; }
+.nav-links a:hover, .icon-btn:hover { color: var(--fg); background: var(--bg-3); }
+.icon-btn { display: inline-grid; place-items: center; width: 38px; height: 38px; padding: 0; color: var(--fg-2); }
+.icon-btn svg { width: 18px; height: 18px; }
+
+/* hero */
+.hero { padding-block: clamp(20px, 5vw, 56px) clamp(72px, 10vw, 128px); }
+.h1 { margin: 0 0 clamp(36px, 5vw, 64px); font-weight: 860; font-stretch: 125%; font-size: clamp(40px, 13.2vw, 184px); line-height: .9; letter-spacing: -.05em; }
+.h1 .line { display: block; overflow: hidden; padding-bottom: .2em; margin-bottom: -.2em; }
+.h1 .line > span { display: inline-block; animation: rise 1s var(--ease) both; }
+.h1 .line + .line > span { animation-delay: .09s; }
+.h1 .dot { color: var(--red); }
+@keyframes rise { from { transform: translateY(110%); } }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: clamp(36px, 5vw, 80px); align-items: start; }
+.lede { font-size: clamp(17px, 1.55vw, 20px); line-height: 1.5; color: var(--fg-2); max-width: 31em; margin: 0 0 32px; text-wrap: pretty; }
+.lede b { color: var(--fg); font-weight: 580; }
+
+.intake { border: 1px solid var(--line-2); background: var(--bg-2); border-radius: 18px; padding: 6px; transition: border-color .2s, box-shadow .2s; }
+.intake:focus-within { border-color: var(--line-3); box-shadow: 0 0 0 5px var(--bg-3); }
+.intake textarea { display: block; width: 100%; height: 96px; resize: none; padding: 14px 14px 0; border: 0; background: transparent; color: var(--fg); font: 13px/1.55 var(--mono); outline: none; }
+.intake textarea::placeholder { color: var(--fg-3); font: 16px var(--sans); }
+.intake-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 14px; }
+.drop-hint { font-size: 14px; color: var(--fg-3); }
+.drop-hint b { color: var(--fg-2); font-weight: 560; }
+.btn { display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 20px; border-radius: 12px; background: var(--fg); color: var(--bg); font-weight: 650; font-size: 15px; transition: transform .15s var(--ease); }
+.btn:active { transform: scale(.97); }
+.btn kbd { background: transparent; border-color: color-mix(in srgb, var(--bg) 25%, transparent); color: inherit; opacity: .6; font-size: 11px; }
+.helper { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin-top: 16px; font-size: 14px; color: var(--fg-2); }
+.link { text-decoration: underline; text-decoration-color: var(--line-3); text-underline-offset: 4px; transition: text-decoration-color .2s, color .2s; }
+.link:hover { color: var(--fg); text-decoration-color: currentColor; }
+.receipt { display: inline-flex; align-items: center; gap: 10px; font: 12px var(--mono); color: var(--fg-3); }
+.receipt i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 20%, transparent); }
+.samples { margin-top: 40px; }
+.samples .label { margin-bottom: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { height: 38px; padding: 0 15px; border-radius: 999px; border: 1px solid var(--line-2); font-size: 14px; color: var(--fg-2); transition: color .2s, border-color .2s, background .2s; }
+.chip:hover { color: var(--fg); border-color: var(--line-3); background: var(--bg-3); }
+
+/* x-ray specimen */
+.specimen { margin: 0; }
+.specimen-head, .specimen-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.specimen-head { margin-bottom: 12px; }
+.specimen-foot { margin-top: 14px; font-size: 14px; color: var(--fg-3); }
+.stage { position: relative; border-radius: 18px; overflow: hidden; background: var(--paper); color: var(--paper-ink); outline: 1px solid var(--line-2); touch-action: pan-y; cursor: crosshair; user-select: none; --x: 30%; --y: 20%; }
+.mail, .truth { display: grid; grid-template-rows: 82px 54px 120px 80px 92px; padding: 8px 26px; }
+.row { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.mail .r-sender { flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; }
+.avatar { width: 40px; height: 40px; flex: none; border-radius: 50%; background: #e8e8ee; display: grid; place-items: center; font-weight: 650; color: #4a4a52; }
+.who b { display: block; font-size: 15px; font-weight: 650; }
+.who span { font-size: 12.5px; color: var(--paper-2); }
+.r-subject { border-bottom: 1px solid var(--paper-3); }
+.r-subject b { font-size: 17px; font-weight: 680; letter-spacing: -.01em; line-height: 1.3; }
+.r-body p { margin: 0 0 6px; font-size: 14.5px; line-height: 1.55; color: #2c2c31; }
+.cta { align-self: flex-start; display: inline-flex; padding: 11px 18px; border-radius: 8px; background: #1f5fd6; color: #fff; font-size: 14px; font-weight: 600; }
+.r-foot p { margin: 0; font-size: 13px; color: var(--paper-2); }
+.r-foot .sig { margin-top: 6px; font-weight: 600; color: #2c2c31; }
+
+.truth { position: absolute; inset: 0; background: var(--xray); color: var(--xray-ink); font: 12px/1.55 var(--mono); clip-path: circle(var(--r) at var(--x) var(--y)); transition: --r .8s var(--ease); }
+.truth .row { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-content: center; gap: 5px 12px; border-bottom: 1px dashed rgb(255 255 255 / .09); }
+.truth .row:last-child { border-bottom: 0; }
+.truth .k { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--xray-2); padding-top: 2px; }
+.truth .v { overflow-wrap: anywhere; }
+.truth em { font-style: normal; color: #ff6a4d; }
+.truth mark { background: rgb(255 77 46 / .3); color: #ff9a84; border-radius: 3px; padding: 0 2px; }
+.stage.revealed .truth { --r: 1600px; }
+
+.lens { position: absolute; left: var(--x); top: var(--y); width: calc(var(--r) * 2); height: calc(var(--r) * 2); translate: -50% -50%; border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 2px #0b0b0c, 0 0 0 7px rgb(11 11 12 / .08); transition: opacity .3s; }
+.lens::before, .lens::after { content: ""; position: absolute; background: #0b0b0c; }
+.lens::before { left: 50%; top: -14px; bottom: -14px; width: 2px; translate: -50% 0; mask: linear-gradient(#000 0 9px, transparent 9px calc(100% - 9px), #000 0); }
+.lens::after { top: 50%; left: -14px; right: -14px; height: 2px; translate: 0 -50%; mask: linear-gradient(90deg, #000 0 9px, transparent 9px calc(100% - 9px), #000 0); }
+.lens-tag { position: absolute; left: 50%; top: calc(100% + 14px); translate: -50% 0; white-space: nowrap; background: #0b0b0c; color: #fff; font: 600 10.5px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; padding: 7px 9px; border-radius: 7px; transition: top .3s var(--ease); }
+.stage.tag-up .lens-tag { top: auto; bottom: calc(100% + 14px); }
+.stage.revealed .lens { opacity: 0; }
+
+.pins { position: absolute; inset: 0; pointer-events: none; }
+.pin { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--red); color: var(--on-red); font: 700 12px/1 var(--mono); flex: none; }
+.pins .pin { position: absolute; pointer-events: auto; translate: -50% -50%; transition: scale .25s var(--ease); }
+.pins .pin:hover, .pins .pin.on { scale: 1.15; }
+
+/* report */
+.report { padding-bottom: 32px; }
+.report-head { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 14px 32px; padding-block: 36px 32px; border-top: 1px solid var(--line); }
+.h2 { margin: 0; font-weight: 790; font-stretch: 120%; font-size: clamp(30px, 3.6vw, 48px); letter-spacing: -.04em; line-height: 1; }
+.h3 { margin: 0 0 16px; font-size: 15px; font-weight: 650; }
+.verdict { background: var(--red); color: var(--on-red); }
+.verdict-in { max-width: 1240px; margin: 0 auto; padding: clamp(36px, 5.5vw, 72px) clamp(16px, 4vw, 40px); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 36px 64px; align-items: end; }
+.verdict .label { color: rgb(23 4 2 / .6); margin-bottom: 18px; }
+.verdict-word { margin: 0; font-weight: 880; font-stretch: 125%; font-size: clamp(54px, 8.4vw, 124px); line-height: .86; letter-spacing: -.055em; }
+.verdict-say { margin: 0 0 10px; font-size: clamp(21px, 2.3vw, 30px); font-weight: 680; letter-spacing: -.02em; line-height: 1.15; }
+.verdict-sub { margin: 0 0 30px; font-size: 16px; color: rgb(23 4 2 / .74); max-width: 30em; }
+.stats { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 36px; padding-top: 18px; border-top: 1.5px solid rgb(23 4 2 / .22); }
+.stat b { display: block; font-weight: 840; font-stretch: 125%; font-size: 44px; line-height: 1; letter-spacing: -.05em; }
+.stat span { font-size: 13.5px; color: rgb(23 4 2 / .7); }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.seg { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--line); }
+.seg button { height: 34px; padding: 0 16px; border-radius: 9px; font-size: 14px; color: var(--fg-2); transition: background .2s, color .2s; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); font-weight: 600; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.ghost-btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-2); font-size: 14px; color: var(--fg-2); transition: color .2s, background .2s; }
+.ghost-btn:hover { color: var(--fg); background: var(--bg-3); }
+
+.xray-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 64px); padding: 44px 0 56px; }
+.xray-grid .sticky { position: sticky; top: 24px; align-self: start; }
+.findings { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.finding { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 18px; padding: 24px 22px; border-radius: 16px; transition: background .25s; outline-offset: -2px; }
+.finding:hover, .finding.on { background: var(--bg-2); }
+.finding h3 { margin: 1px 0 14px; font-size: 19px; font-weight: 670; letter-spacing: -.015em; line-height: 1.25; }
+.seen { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px 12px; margin: 0; font: 13px/1.5 var(--mono); }
+.seen dt { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3); padding-top: 2px; }
+.seen dd { margin: 0; overflow-wrap: anywhere; color: var(--fg-2); }
+.seen dd.real { color: var(--fg); }
+.seen mark { background: var(--red-soft); color: var(--red-text); border-radius: 3px; padding: 0 2px; }
+.finding p { margin: 14px 0 0; color: var(--fg-2); font-size: 15px; line-height: 1.55; text-wrap: pretty; }
+
+.checks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.check { padding: 28px 24px 30px 0; }
+.check + .check { padding-left: 24px; border-left: 1px solid var(--line); }
+.check b { display: block; margin: 12px 0 8px; font-weight: 820; font-stretch: 120%; font-size: 32px; letter-spacing: -.04em; line-height: 1; }
+.check p { margin: 0; font-size: 14px; color: var(--fg-2); text-wrap: pretty; }
+.c-red { color: var(--red-text); } .c-amber { color: var(--amber-text); } .c-green { color: var(--green-text); }
+
+.analyst { display: none; padding: 48px 0 8px; gap: 44px; }
+.report[data-view="analyst"] .analyst { display: grid; }
+.route { display: flex; align-items: center; overflow-x: auto; padding-bottom: 4px; }
+.hop { flex: none; min-width: 220px; padding: 16px 18px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--bg-2); }
+.hop.origin { border-color: var(--red); }
+.hop .label { margin-bottom: 8px; }
+.hop b { display: block; font: 600 13.5px/1.4 var(--mono); }
+.hop span:last-child { font: 12px var(--mono); color: var(--fg-3); }
+.hop-link { flex: 1 0 90px; position: relative; display: grid; place-items: center; font: 11px var(--mono); color: var(--fg-3); }
+.hop-link::before { content: ""; position: absolute; inset: 50% 0 auto; height: 1px; background: var(--line-3); }
+.hop-link span { position: relative; background: var(--bg); padding: 2px 8px; }
+.analyst-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
+.ioc { width: 100%; border-collapse: collapse; font: 12.5px/1.5 var(--mono); margin-bottom: 16px; }
+.ioc td { padding: 10px 12px 10px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.ioc td:first-child { width: 64px; color: var(--fg-3); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; padding-top: 12px; }
+.ioc td:last-child { color: var(--fg-3); font-family: var(--sans); font-size: 13px; }
+.raw { margin: 0; padding: 20px 22px; border-radius: 16px; background: var(--xray); color: var(--xray-ink); font: 12.5px/1.75 var(--mono); overflow-x: auto; border: 1px solid var(--line); white-space: pre; }
+.raw .h { color: #8a8a93; }
+.raw .bad { color: #ff6a4d; text-decoration: underline wavy rgb(255 106 77 / .55); text-underline-offset: 4px; }
+
+.next { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 28px 64px; padding: 80px 0 40px; }
+.next ol { list-style: none; margin: 0; padding: 0; }
+.next li { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px; padding: 24px 0; border-top: 1px solid var(--line); }
+.next li:last-child { border-bottom: 1px solid var(--line); }
+.next li > span { font-weight: 840; font-stretch: 125%; font-size: 30px; letter-spacing: -.05em; line-height: 1; color: var(--fg-3); }
+.next li b { font-weight: 640; font-size: 17px; }
+.next li p { margin: 6px 0 0; color: var(--fg-2); }
+
+.foot { border-top: 1px solid var(--line); padding-block: 72px 40px; }
+.foot-big { margin: 0 0 48px; font-weight: 850; font-stretch: 125%; font-size: clamp(34px, 6.4vw, 88px); letter-spacing: -.05em; line-height: .92; }
+.foot-big span { color: var(--fg-3); }
+.foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; font-size: 14px; color: var(--fg-3); }
+.foot-row nav { display: flex; gap: 20px; }
+.foot-row a:hover { color: var(--fg); }
+
+/* how-to sheet */
+dialog.sheet { margin: 0 0 0 auto; width: min(500px, 100vw); height: 100dvh; max-height: none; padding: 0; border: 0; border-left: 1px solid var(--line-2); background: var(--bg-2); color: var(--fg); }
+dialog.sheet::backdrop { background: rgb(0 0 0 / .55); }
+dialog.sheet[open] { animation: sheet .5s var(--ease); }
+@keyframes sheet { from { translate: 48px 0; opacity: 0; } }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 18px 28px; border-bottom: 1px solid var(--line); }
+.sheet-head h2 { margin: 0; font-size: 18px; font-weight: 680; letter-spacing: -.01em; }
+.sheet-body { padding: 28px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; }
+.tabs button { height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-2); font-size: 14px; color: var(--fg-2); }
+.tabs button[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 15px 0; border-top: 1px solid var(--line); font-size: 15px; line-height: 1.7; }
+.steps li::before { content: counter(s, decimal-leading-zero); font: 600 12px/1.9 var(--mono); color: var(--fg-3); }
+.alt { margin: 20px 0 0; padding: 16px 18px; border-radius: 14px; background: var(--bg-3); font-size: 14px; line-height: 1.7; color: var(--fg-2); }
+.why { margin: 32px 0 0; font-size: 14px; color: var(--fg-3); }
+
+/* drop anywhere */
+.dropper { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgb(11 11 12 / .92); color: #f4f4f2; opacity: 0; pointer-events: none; transition: opacity .2s; }
+body.dragging .dropper { opacity: 1; }
+.dropper-frame { position: relative; width: min(760px, 86vw); aspect-ratio: 16 / 9; display: grid; place-content: center; text-align: center; transition: scale .4s var(--ease); scale: .96; }
+body.dragging .dropper-frame { scale: 1; }
+.dropper-frame i { position: absolute; width: 44px; height: 44px; border: 0 solid #f4f4f2; }
+.dropper-frame i:nth-child(1) { top: 0; left: 0; border-width: 2px 0 0 2px; border-top-left-radius: 18px; }
+.dropper-frame i:nth-child(2) { top: 0; right: 0; border-width: 2px 2px 0 0; border-top-right-radius: 18px; }
+.dropper-frame i:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 2px 2px; border-bottom-left-radius: 18px; }
+.dropper-frame i:nth-child(4) { bottom: 0; right: 0; border-width: 0 2px 2px 0; border-bottom-right-radius: 18px; }
+.dropper-frame b { font-weight: 860; font-stretch: 125%; font-size: clamp(36px, 6vw, 72px); letter-spacing: -.05em; line-height: 1; }
+.dropper-frame span { margin-top: 14px; color: #a8a8ae; }
+
+.toast { position: fixed; left: 50%; bottom: 28px; z-index: 60; translate: -50% 16px; opacity: 0; padding: 12px 18px; border-radius: 12px; background: var(--fg); color: var(--bg); font-size: 14px; font-weight: 520; pointer-events: none; transition: opacity .3s var(--ease), translate .3s var(--ease); }
+.toast.show { opacity: 1; translate: -50% 0; }
+
+/* One-shot reveals: content is visible without JS, and once revealed it stays revealed. */
+.js .reveal { opacity: 0; translate: 0 28px; transition: opacity .9s var(--ease), translate .9s var(--ease); }
+.verdict { position: relative; }
+.js .verdict::after { content: ""; position: absolute; inset: 0; background: var(--bg); transform-origin: right; transition: scale 1.1s var(--ease); }
+.js .verdict.in::after { scale: 0 1; }
+.js .verdict .verdict-word { translate: 0 .35em; opacity: 0; transition: translate 1s var(--ease) .25s, opacity 1s var(--ease) .25s; }
+.js .reveal.in, .js .verdict.in .verdict-word { opacity: 1; translate: 0 0; }
+
+@media (max-width: 920px) {
+  .hero-grid, .xray-grid, .verdict-in, .next, .analyst-cols { grid-template-columns: minmax(0, 1fr); }
+  .xray-grid .sticky { position: relative; top: 0; }
+  .checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .check:nth-child(3) { padding-left: 0; border-left: 0; }
+  .check:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .nav-links a:not(.keep) { display: none; }
+}
+@media (max-width: 560px) {
+  .mail, .truth { grid-template-rows: 78px 70px 156px 76px 100px; padding: 6px 18px; }
+  .drop-hint, .btn kbd { display: none; }
+  .intake-bar { justify-content: flex-end; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .stat b { font-size: 34px; }
+  .finding { padding: 20px 6px; gap: 14px; }
+  .checks { grid-template-columns: minmax(0, 1fr); }
+  .check, .check + .check { padding-left: 0; border-left: 0; }
+  .check + .check { border-top: 1px solid var(--line); }
+  .specimen-foot { flex-direction: column; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="wrap nav">
+  <a class="brand" href="#">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <defs><clipPath id="lens-clip"><circle cx="15.5" cy="14.5" r="6.75" /></clipPath></defs>
+      <rect x="1.75" y="4.75" width="16.5" height="12.5" rx="2" stroke="currentColor" stroke-width="1.5" />
+      <path d="M2.6 6.2l7.4 5.4 7.4-5.4" stroke="currentColor" stroke-width="1.5" />
+      <circle cx="15.5" cy="14.5" r="6.75" fill="currentColor" />
+      <g clip-path="url(#lens-clip)" stroke="var(--bg)" stroke-width="1.5"><rect x="1.75" y="4.75" width="16.5" height="12.5" rx="2" /><path d="M2.6 6.2l7.4 5.4 7.4-5.4" /></g>
+    </svg>
+    phish-check
+  </a>
+  <nav class="nav-links" aria-label="Main">
+    <a href="#report">Example report</a>
+    <a href="#" data-open-sheet>Find your email's source</a>
+    <a class="keep" href="#">GitHub</a>
+    <button class="icon-btn" id="theme" type="button" aria-label="Switch colour theme">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.5" /><path d="M12 3.75a8.25 8.25 0 0 1 0 16.5z" fill="currentColor" /></svg>
+    </button>
+  </nav>
+</header>
+
+<main>
+  <section class="wrap hero">
+    <h1 class="h1"><span class="line"><span>See through</span></span><span class="line"><span>any email<span class="dot">.</span></span></span></h1>
+
+    <div class="hero-grid">
+      <div>
+        <p class="lede">phish-check takes a suspicious email apart and shows you <b>who really sent it</b>, <b>where its links actually go</b>, and <b>what's hiding inside</b>. All of it happens on your device.</p>
+
+        <form class="intake" id="intake">
+          <label class="sr-only" for="source">Email source</label>
+          <textarea id="source" placeholder="Paste the email's original source here.&#10;It starts with lines like Received: and From:" spellcheck="false"></textarea>
+          <div class="intake-bar">
+            <span class="drop-hint">or drop a <b>.eml</b> or <b>.msg</b> file anywhere on the page</span>
+            <button class="btn" type="submit">Inspect <kbd>Ctrl ↵</kbd></button>
+          </div>
+        </form>
+
+        <div class="helper">
+          <button class="link" type="button" data-open-sheet>Where do I find the source?</button>
+          <span class="receipt"><i aria-hidden="true"></i>0 bytes uploaded · nothing stored</span>
+        </div>
+
+        <div class="samples">
+          <p class="label">Or open a sample</p>
+          <div class="chips">
+            <button class="chip" type="button" data-sample>Fake PayPal</button>
+            <button class="chip" type="button" data-sample>Boss wants gift cards</button>
+            <button class="chip" type="button" data-sample>Invoice with a macro</button>
+            <button class="chip" type="button" data-sample>Fake Microsoft 365</button>
+            <button class="chip" type="button" data-sample>A real order email</button>
+          </div>
+        </div>
+      </div>
+
+      <figure class="specimen">
+        <div class="specimen-head"><span class="label">Sample · fake PayPal</span><span class="label">X-ray lens</span></div>
+        <div id="hero-xray"></div>
+        <figcaption class="specimen-foot">
+          <span>Move over the email to look underneath.</span>
+          <button class="ghost-btn" id="reveal" type="button" aria-pressed="false">Show everything</button>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="report" id="report" data-view="plain" aria-labelledby="report-title">
+    <div class="wrap">
+      <div class="report-head reveal">
+        <h2 class="h2" id="report-title">What you get back</h2>
+        <p class="label">Fake PayPal sample · checked in this tab in 41 ms · 0 bytes uploaded</p>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="verdict-in">
+        <div>
+          <p class="label">Verdict</p>
+          <p class="verdict-word">Likely<br />phishing</p>
+        </div>
+        <div>
+          <p class="verdict-say">It says PayPal. It isn't PayPal.</p>
+          <p class="verdict-sub">Don't click anything in it, and don't reply. Everything we found is below.</p>
+          <div class="stats">
+            <div class="stat"><b>4</b><span>tricks found</span></div>
+            <div class="stat"><b>3</b><span>checks failed</span></div>
+            <div class="stat"><b>1</b><span>hidden tracker</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Level of detail">
+          <button type="button" data-view="plain" aria-pressed="true">Plain English</button>
+          <button type="button" data-view="analyst" aria-pressed="false">Analyst</button>
+        </div>
+        <div class="tools">
+          <button class="ghost-btn" type="button" data-copy>Copy summary</button>
+          <button class="ghost-btn" type="button" data-copy>Download report</button>
+        </div>
+      </div>
+
+      <div class="xray-grid">
+        <div class="sticky">
+          <figure class="specimen">
+            <div id="report-xray"></div>
+            <figcaption class="specimen-foot"><span>Hover a finding to see where it hides.</span></figcaption>
+          </figure>
+        </div>
+
+        <ol class="findings">
+          <li class="finding" data-region="sender" tabindex="0">
+            <span class="pin">1</span>
+            <div>
+              <h3>The sender is wearing a disguise</h3>
+              <dl class="seen"><dt>You see</dt><dd>PayPal Service</dd><dt>Really</dt><dd class="real">service@paypa<mark>1</mark>-security.test</dd></dl>
+              <p>Anyone can type any name. The address swaps the letter "l" for the number "1", and PayPal's mail servers never sent it.</p>
+            </div>
+          </li>
+          <li class="finding" data-region="link" tabindex="0">
+            <span class="pin">2</span>
+            <div>
+              <h3>The button lies about where it goes</h3>
+              <dl class="seen"><dt>You see</dt><dd>https://www.paypal.com/signin</dd><dt>Really</dt><dd class="real">http://<mark>paypa1-security.test</mark>/login/verify?u=alex@…</dd></dl>
+              <p>Button text is only a label. This one opens a lookalike sign-in page with your email address already filled in.</p>
+            </div>
+          </li>
+          <li class="finding" data-region="pixel" tabindex="0">
+            <span class="pin">3</span>
+            <div>
+              <h3>It tells the sender you opened it</h3>
+              <dl class="seen"><dt>You see</dt><dd>Nothing</dd><dt>Really</dt><dd class="real">a <mark>1×1 image</mark> from paypa1-security.test</dd></dl>
+              <p>An invisible image loads from their server the moment you open the email. It confirms your address is real and active.</p>
+            </div>
+          </li>
+          <li class="finding" data-region="wording" tabindex="0">
+            <span class="pin">4</span>
+            <div>
+              <h3>It's trying to rush you</h3>
+              <dl class="seen"><dt>You see</dt><dd>"within 24 hours", "permanently suspended"</dd></dl>
+              <p>Deadlines and threats are there to make you act before you think. PayPal doesn't greet you as "Dear Customer", either.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="checks reveal">
+        <div class="check"><p class="label">Domain policy · DMARC</p><b class="c-red">Fail</b><p>The domain in the From address doesn't vouch for this email.</p></div>
+        <div class="check"><p class="label">Sending server · SPF</p><b class="c-amber">Softfail</b><p>It came from a server the domain doesn't list as its own.</p></div>
+        <div class="check"><p class="label">Signature · DKIM</p><b class="c-red">Missing</b><p>Nothing proves the message wasn't changed along the way.</p></div>
+        <div class="check"><p class="label">Replies go to</p><b class="c-red">Elsewhere</b><p>mailbox.test, a different domain from the sender's.</p></div>
+      </div>
+
+      <div class="analyst">
+        <div>
+          <h3 class="h3">Delivery route</h3>
+          <div class="route">
+            <div class="hop origin"><p class="label">Origin</p><b>vps-77.hosting.test</b><span>198.51.100.77 · rented server</span></div>
+            <div class="hop-link"><span>ESMTP · no TLS</span></div>
+            <div class="hop"><p class="label">Your provider</p><b>mx.inbox.example</b><span>Fri 02:41:18 −07:00</span></div>
+            <div class="hop-link"><span>+1 s</span></div>
+            <div class="hop"><p class="label">Mailbox</p><b>alex@inbox.example</b><span>delivered</span></div>
+          </div>
+        </div>
+        <div class="analyst-cols">
+          <div>
+            <h3 class="h3">Indicators, defanged</h3>
+            <table class="ioc">
+              <tr><td>Domain</td><td>paypa1-security[.]test</td><td>Lookalike of paypal.com</td></tr>
+              <tr><td>URL</td><td>hxxp://paypa1-security[.]test/login/verify</td><td>Credential page</td></tr>
+              <tr><td>URL</td><td>hxxp://paypa1-security[.]test/open.gif</td><td>Open tracker</td></tr>
+              <tr><td>IP</td><td>198.51.100[.]77</td><td>Sending server</td></tr>
+              <tr><td>Email</td><td>account-review@mailbox[.]test</td><td>Reply-To</td></tr>
+            </table>
+            <button class="ghost-btn" type="button" data-copy>Copy indicators</button>
+          </div>
+          <div>
+            <h3 class="h3">Headers that matter</h3>
+<pre class="raw"><span class="h">Authentication-Results:</span> mx.inbox.example;
+    <span class="bad">dkim=none</span>;
+    <span class="bad">spf=softfail</span> smtp.mailfrom=noreply@paypa1-security.test;
+    <span class="bad">dmarc=fail</span> header.from=paypa1-security.test
+<span class="h">Received:</span> from <span class="bad">vps-77.hosting.test</span> ([198.51.100.77])
+    by mx.inbox.example with ESMTP
+<span class="h">From:</span> "PayPal Service" &lt;service@<span class="bad">paypa1-security.test</span>&gt;
+<span class="h">Reply-To:</span> &lt;account-review@<span class="bad">mailbox.test</span>&gt;</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="next reveal">
+        <h2 class="h2">What to do now</h2>
+        <ol>
+          <li><span>01</span><div><b>Don't click, download, or reply.</b><p>Even a reply tells them your address works.</p></div></li>
+          <li><span>02</span><div><b>Report it to your email provider.</b><p>In Gmail: <kbd>⋮</kbd> then <kbd>Report phishing</kbd>. It helps block the sender for everyone.</p></div></li>
+          <li><span>03</span><div><b>Already typed your password?</b><p>Type paypal.com into your browser yourself, change your password, and turn on two-step login.</p></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <div class="foot">
+    <p class="foot-big">Your email never<br /><span>leaves this tab.</span></p>
+    <div class="foot-row">
+      <span>phish-check · open source · made by Abdullah</span>
+      <nav aria-label="Footer"><a href="#">How it works</a><a href="#">Privacy</a><a href="#">GitHub</a></nav>
+    </div>
+  </div>
+</footer>
+
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+  <div class="sheet-head">
+    <h2 id="sheet-title">Find your email's source</h2>
+    <button class="icon-btn" type="button" id="sheet-close" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="tabs" role="tablist" aria-label="Email app">
+      <button type="button" role="tab" aria-selected="true" data-tab="gmail">Gmail</button>
+      <button type="button" role="tab" aria-selected="false" data-tab="outlook">Outlook</button>
+      <button type="button" role="tab" aria-selected="false" data-tab="apple">Apple Mail</button>
+      <button type="button" role="tab" aria-selected="false" data-tab="yahoo">Yahoo</button>
+      <button type="button" role="tab" aria-selected="false" data-tab="phone">On a phone</button>
+    </div>
+    <div role="tabpanel" data-panel="gmail">
+      <ol class="steps">
+        <li><span>Open the email on a computer.</span></li>
+        <li><span>Click <kbd>⋮</kbd> next to the reply arrow.</span></li>
+        <li><span>Choose <kbd>Download message</kbd>. You get an <code>.eml</code> file.</span></li>
+        <li><span>Drop that file anywhere on this page.</span></li>
+      </ol>
+      <p class="alt">Rather copy and paste? Choose <kbd>Show original</kbd> instead, click <kbd>Copy to clipboard</kbd>, and paste it into the box.</p>
+    </div>
+    <div role="tabpanel" data-panel="outlook" hidden>
+      <ol class="steps">
+        <li><span>Open the email.</span></li>
+        <li><span>Click <kbd>⋯</kbd> for more actions.</span></li>
+        <li><span>Choose <kbd>Save as</kbd> to download an <code>.eml</code> file.</span></li>
+        <li><span>Drop that file anywhere on this page.</span></li>
+      </ol>
+      <p class="alt">Classic Outlook on Windows: drag the email from your inbox onto the desktop. That makes a <code>.msg</code> file, which works too.</p>
+    </div>
+    <div role="tabpanel" data-panel="apple" hidden>
+      <ol class="steps">
+        <li><span>Select the email.</span></li>
+        <li><span>Choose <kbd>File</kbd> then <kbd>Save As…</kbd></span></li>
+        <li><span>Set Format to <kbd>Raw Message Source</kbd> and save.</span></li>
+        <li><span>Drop that file anywhere on this page.</span></li>
+      </ol>
+      <p class="alt">Faster: drag the email from Mail straight onto your desktop, then onto this page.</p>
+    </div>
+    <div role="tabpanel" data-panel="yahoo" hidden>
+      <ol class="steps">
+        <li><span>Open the email.</span></li>
+        <li><span>Click <kbd>⋯</kbd> More.</span></li>
+        <li><span>Choose <kbd>View raw message</kbd>.</span></li>
+        <li><span>Select everything, copy it, and paste it into the box.</span></li>
+      </ol>
+    </div>
+    <div role="tabpanel" data-panel="phone" hidden>
+      <ol class="steps">
+        <li><span>Phone apps can't save an email's source. Open the same email on a computer instead.</span></li>
+        <li><span>Coming soon: forward it to <code>check@abdullah1.dev</code> and get the verdict back by email.</span></li>
+      </ol>
+    </div>
+    <p class="why">Why the source? The email you see hides the parts that matter most: the real sender, the servers it passed through, and where its links lead.</p>
+  </div>
+</dialog>
+
+<div class="dropper" aria-hidden="true"><div class="dropper-frame"><i></i><i></i><i></i><i></i><b>Drop to inspect</b><span>It's read in this tab. Nothing is uploaded.</span></div></div>
+<div class="toast" role="status" aria-live="polite"></div>
+
+<template id="mail-tpl">
+  <div class="stage">
+    <div class="mail" aria-label="Example phishing email as it appears in an inbox">
+      <div class="row r-sender" data-region="sender" data-fx=".3">
+        <span class="avatar">P</span>
+        <span class="who"><b>PayPal Service</b><span>to me · Fri 09:41</span></span>
+      </div>
+      <div class="row r-subject" data-region="route" data-fx=".42"><b>Action required: your account has been limited</b></div>
+      <div class="row r-body" data-region="wording" data-fx=".52"><p>Dear Customer,</p><p>We noticed unusual activity on your account and have limited it. Confirm your details within 24 hours to restore access.</p></div>
+      <div class="row r-link" data-region="link" data-fx=".27"><span class="cta">https://www.paypal.com/signin</span></div>
+      <div class="row r-foot" data-region="pixel" data-fx=".56"><p>If you don't confirm, your account will be permanently suspended.</p><p class="sig">PayPal Security Team</p></div>
+    </div>
+    <div class="truth" aria-hidden="true">
+      <div class="row"><span class="k">From</span><span class="v">service@paypa<mark>1</mark>-security.test</span><span class="k">Auth</span><span class="v"><em>dmarc=fail</em> · spf=softfail · dkim=none</span></div>
+      <div class="row"><span class="k">Via</span><span class="v">vps-77.hosting.test · <em>rented server</em>, not PayPal</span></div>
+      <div class="row"><span class="k">Tone</span><span class="v">"Dear Customer": doesn't know your name</span><span class="k">Clock</span><span class="v"><em>"within 24 hours"</em>: invented deadline</span></div>
+      <div class="row"><span class="k">Href</span><span class="v"><em>http://paypa1-security.test/login/verify?u=alex%40inbox.example</em></span></div>
+      <div class="row"><span class="k">Threat</span><span class="v">"permanently suspended"</span><span class="k">Img</span><span class="v"><em>1×1 tracker</em> → paypa1-security.test/open.gif</span></div>
+    </div>
+    <div class="lens" aria-hidden="true"><span class="lens-tag">Real sender</span></div>
+    <div class="pins"></div>
+  </div>
+</template>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+document.documentElement.classList.add("js");
+const revealer = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting) continue;
+    entry.target.classList.add("in");
+    revealer.unobserve(entry.target);
+  }
+}, { threshold: 0.15 });
+$$(".reveal, .verdict").forEach((el) => revealer.observe(el));
+const LABELS = { sender: "Real sender", route: "Sent from", wording: "Pressure", link: "Real destination", pixel: "Hidden tracker" };
+
+function mountXray(host, { tour = false, pins = null } = {}) {
+  host.append($("#mail-tpl").content.cloneNode(true));
+  const stage = $(".stage", host);
+  const tag = $(".lens-tag", stage);
+  const regions = $$(".mail [data-region]", stage);
+  const pos = { x: 0, y: 0 };
+  const goal = { x: 0, y: 0 };
+  let current = null, tourIndex = 0, tourTimer = 0, resumeTimer = 0, visible = false, raf = 0;
+
+  const regionEl = (name) => regions.find((r) => r.dataset.region === name);
+  const focusPoint = (name) => {
+    const el = regionEl(name);
+    return { x: el.offsetLeft + el.offsetWidth * Number(el.dataset.fx), y: el.offsetTop + el.offsetHeight / 2 };
+  };
+  const regionAt = (y) => regions.find((r) => y >= r.offsetTop && y < r.offsetTop + r.offsetHeight)?.dataset.region ?? null;
+  const go = (p) => { goal.x = p.x; goal.y = p.y; if (!raf && visible) raf = requestAnimationFrame(tick); };
+
+  let radius = 84;
+  const clamp = (v, max) => Math.min(Math.max(v, radius + 6), max - radius - 6);
+
+  function tick() {
+    const k = reduceMotion ? 1 : 0.14;
+    pos.x += (goal.x - pos.x) * k;
+    pos.y += (goal.y - pos.y) * k;
+    // The circle stays whole inside the card; the pointer is still inside it near the edges.
+    const cx = clamp(pos.x, stage.offsetWidth);
+    const cy = clamp(pos.y, stage.offsetHeight);
+    stage.style.setProperty("--x", cx.toFixed(1) + "px");
+    stage.style.setProperty("--y", cy.toFixed(1) + "px");
+    stage.classList.toggle("tag-up", cy > stage.offsetHeight - radius - 60);
+    const now = regionAt(pos.y);
+    if (now !== current) {
+      current = now;
+      tag.textContent = now ? LABELS[now] : "Underneath";
+      host.dispatchEvent(new CustomEvent("region", { detail: now }));
+    }
+    const settled = Math.abs(goal.x - pos.x) < 0.2 && Math.abs(goal.y - pos.y) < 0.2;
+    raf = visible && !settled ? requestAnimationFrame(tick) : 0;
+  }
+
+  const order = ["sender", "link", "pixel", "wording", "route"];
+  const step = () => { go(focusPoint(order[tourIndex++ % order.length])); tourTimer = setTimeout(step, 2600); };
+  const stopTour = () => { clearTimeout(tourTimer); clearTimeout(resumeTimer); };
+  const follow = (e) => { const r = stage.getBoundingClientRect(); go({ x: e.clientX - r.left, y: e.clientY - r.top }); };
+
+  stage.addEventListener("pointermove", (e) => { if (e.pointerType === "touch" && !e.buttons) return; stopTour(); follow(e); });
+  stage.addEventListener("pointerdown", (e) => { stopTour(); follow(e); });
+  stage.addEventListener("pointerleave", () => { if (tour && !reduceMotion) resumeTimer = setTimeout(step, 1800); });
+
+  function placePins() {
+    if (!pins) return;
+    const layer = $(".pins", stage);
+    layer.replaceChildren(...Object.entries(pins).map(([name, n]) => {
+      const el = regionEl(name);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "pin";
+      b.textContent = n;
+      b.dataset.region = name;
+      b.setAttribute("aria-label", `Show finding ${n}`);
+      b.style.left = el.offsetLeft + el.offsetWidth - 4 + "px";
+      b.style.top = el.offsetTop + 22 + "px";
+      return b;
+    }));
+  }
+
+  new ResizeObserver(() => {
+    radius = parseFloat(getComputedStyle(stage).getPropertyValue("--r")) || 84;
+    placePins();
+    go(focusPoint(current ?? "sender"));
+  }).observe(stage);
+  new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; if (visible) go(goal); }).observe(stage);
+
+  const start = focusPoint("sender");
+  pos.x = goal.x = start.x;
+  pos.y = goal.y = start.y;
+  if (tour && !reduceMotion) tourTimer = setTimeout(step, 1400);
+
+  return {
+    stage,
+    focus(name) { stopTour(); go(focusPoint(name)); },
+    reveal(on) { stage.classList.toggle("revealed", on); },
+  };
+}
+
+const hero = mountXray($("#hero-xray"), { tour: true });
+const report = mountXray($("#report-xray"), { pins: { sender: 1, link: 2, pixel: 3, wording: 4 } });
+
+$("#reveal").addEventListener("click", (e) => {
+  const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+  e.currentTarget.setAttribute("aria-pressed", String(on));
+  e.currentTarget.textContent = on ? "Back to the lens" : "Show everything";
+  hero.reveal(on);
+});
+
+const findings = $$(".finding");
+const setActive = (name) => {
+  findings.forEach((f) => f.classList.toggle("on", f.dataset.region === name));
+  $$("#report-xray .pins .pin").forEach((b) => b.classList.toggle("on", b.dataset.region === name));
+};
+findings.forEach((f) => {
+  f.addEventListener("mouseenter", () => report.focus(f.dataset.region));
+  f.addEventListener("focus", () => report.focus(f.dataset.region));
+});
+$("#report-xray").addEventListener("region", (e) => setActive(e.detail));
+$("#report-xray").addEventListener("click", (e) => {
+  const pin = e.target.closest(".pin");
+  if (!pin) return;
+  report.focus(pin.dataset.region);
+  $(`.finding[data-region="${pin.dataset.region}"]`).scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+});
+
+$$(".seg button").forEach((b) => b.addEventListener("click", () => {
+  $$(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  $("#report").dataset.view = b.dataset.view;
+}));
+
+$("#theme").addEventListener("click", () => {
+  const root = document.documentElement;
+  root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+});
+
+const sheet = $("#sheet");
+$$("[data-open-sheet]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); sheet.showModal(); }));
+$("#sheet-close").addEventListener("click", () => sheet.close());
+sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.close(); });
+$$(".tabs [role=tab]").forEach((tab) => tab.addEventListener("click", () => {
+  $$(".tabs [role=tab]").forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+  $$("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== tab.dataset.tab; });
+}));
+
+const toastEl = $(".toast");
+let toastTimer = 0;
+function toast(text) {
+  toastEl.textContent = text;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+}
+const toReport = () => $("#report").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+$("#intake").addEventListener("submit", (e) => { e.preventDefault(); toReport(); });
+$("#source").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); toReport(); } });
+$$("[data-sample]").forEach((b) => b.addEventListener("click", toReport));
+$$("[data-copy]").forEach((b) => b.addEventListener("click", () => toast("Mockup only: this would copy or download the report.")));
+
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes("Files");
+addEventListener("dragenter", (e) => { if (!hasFiles(e)) return; dragDepth++; document.body.classList.add("dragging"); });
+addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("dragging"); } });
+addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+addEventListener("drop", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove("dragging");
+  toast("Mockup only: the real app opens the report here.");
+});
+</script>
+</body>
+</html>

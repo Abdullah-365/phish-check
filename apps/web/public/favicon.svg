@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <style>
+    .ink { stroke: #0b0b0c; } .fill { fill: #0b0b0c; } .cut { stroke: #f4f4f2; }
+    @media (prefers-color-scheme: dark) { .ink { stroke: #f4f4f2; } .fill { fill: #f4f4f2; } .cut { stroke: #0b0b0c; } }
+  </style>
+  <defs><clipPath id="c"><circle cx="15.5" cy="14.5" r="6.75" /></clipPath></defs>
+  <rect class="ink" x="1.75" y="4.75" width="16.5" height="12.5" rx="2" stroke-width="1.5" />
+  <path class="ink" d="M2.6 6.2l7.4 5.4 7.4-5.4" stroke-width="1.5" />
+  <circle class="fill" cx="15.5" cy="14.5" r="6.75" />
+  <g class="cut" clip-path="url(#c)" stroke-width="1.5"><rect x="1.75" y="4.75" width="16.5" height="12.5" rx="2" /><path d="M2.6 6.2l7.4 5.4 7.4-5.4" /></g>
+</svg>

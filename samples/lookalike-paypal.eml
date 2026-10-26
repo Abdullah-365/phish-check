@@ -1,0 +1,47 @@
+Delivered-To: alex@inbox.example
+Received: by 2002:a05:6a00:1a8c with SMTP id x12csp512pfv;
+        Fri, 23 Oct 2026 02:41:19 -0700 (PDT)
+Authentication-Results: mx.inbox.example;
+       dkim=none;
+       spf=softfail (inbox.example: domain of transitioning noreply@paypa1-security.test does not designate 198.51.100.77 as permitted sender) smtp.mailfrom=noreply@paypa1-security.test;
+       dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=paypa1-security.test
+Return-Path: <noreply@paypa1-security.test>
+Received: from vps-77.hosting.test (vps-77.hosting.test. [198.51.100.77])
+        by mx.inbox.example with ESMTP id 3f4e5d6c7b
+        for <alex@inbox.example>;
+        Fri, 23 Oct 2026 02:41:18 -0700 (PDT)
+From: "PayPal Service" <service@paypa1-security.test>
+Reply-To: <account-review@mailbox.test>
+To: alex@inbox.example
+Subject: =?UTF-8?Q?Action_required:_your_account_has_been_limited?=
+Date: Fri, 23 Oct 2026 09:41:12 +0000
+Message-ID: <20261023094112.77@vps-77.hosting.test>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b2_pp"
+
+--b2_pp
+Content-Type: text/plain; charset=utf-8
+
+Dear Customer,
+
+We noticed unusual activity on your account and have temporarily limited it.
+To restore full access, confirm your details within 24 hours:
+
+https://www.paypal.com/signin
+
+If you do not confirm, your account will be permanently suspended.
+
+PayPal Security Team
+
+--b2_pp
+Content-Type: text/html; charset=utf-8
+
+<p>Dear Customer,</p>
+<p>We noticed unusual activity on your account and have temporarily limited it.
+To restore full access, confirm your details within <b>24 hours</b>:</p>
+<p><a href="http://paypa1-security.test/login/verify?u=alex%40inbox.example&amp;t=8f2c91" style="display:inline-block;background-color:#0070ba;color:#ffffff;padding:11px 18px;border-radius:6px;text-decoration:none">https://www.paypal.com/signin</a></p>
+<p>If you do not confirm, your account will be permanently suspended.</p>
+<p>PayPal Security Team</p>
+<img src="http://paypa1-security.test/open.gif?u=alex%40inbox.example" width="1" height="1" alt="">
+
+--b2_pp--

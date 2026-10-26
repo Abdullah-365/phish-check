@@ -1,0 +1,31 @@
+{
+  "name": "phish-check",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Phishing email triage: paste or drop a suspicious email, get a verdict with reasons.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "npm run dev -w @phish-check/web --",
+    "build": "npm run build -w @phish-check/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "worker:dev": "npm run build && wrangler dev",
+    "design": "vite design --port 5180 --strictPort",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261025.1",
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.152.0"
+  }
+}

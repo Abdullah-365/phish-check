@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>phish-check — case file mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f3efe6;
+    --sheet: #fbf9f4;
+    --ink: #1c1b18;
+    --ink-2: #4a4740;
+    --ink-3: #7a756a;
+    --rule: #dcd5c5;
+    --rule-2: #c9c0ac;
+    --pen: #b42318;
+    --pen-wash: #f6e3dc;
+    --ok: #2f6b3b;
+    --ok-wash: #e3ecdf;
+    --warn: #8a5a00;
+    --warn-wash: #f3e7c9;
+    --serif: "Newsreader", Georgia, serif;
+    --sans: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--sans); }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; border-bottom: 1px solid var(--rule); }
+  .brand { display: flex; align-items: center; gap: 10px; font: 500 17px var(--mono); letter-spacing: -0.01em; text-decoration: none; }
+  .mark { width: 28px; height: 28px; }
+  .links { display: flex; gap: 28px; font-size: 14px; color: var(--ink-2); }
+  .links a { text-decoration: none; }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; padding: 72px 0 56px; align-items: start; }
+  .eyebrow { font: 500 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 20px; }
+  h1 { font: 400 clamp(40px, 5.4vw, 64px)/1.04 var(--serif); letter-spacing: -0.02em; margin: 0 0 24px; }
+  h1 em { font-style: italic; color: var(--pen); }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 30em; margin: 0 0 32px; }
+  .trust { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  .trust li { display: flex; gap: 12px; align-items: baseline; font-size: 15px; color: var(--ink-2); }
+  .trust b { color: var(--ink); font-weight: 500; }
+  .tick { font: 500 12px var(--mono); color: var(--ok); }
+
+  /* intake */
+  .intake { background: var(--sheet); border: 1px solid var(--rule-2); border-radius: 4px; box-shadow: 0 1px 0 var(--rule), 0 18px 40px -24px rgba(60, 45, 20, 0.35); }
+  .intake-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--rule); font: 500 12px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+  .tabs { display: flex; gap: 4px; padding: 16px 20px 0; }
+  .tab { font: 500 14px var(--sans); padding: 8px 14px; border-radius: 3px; border: 1px solid transparent; color: var(--ink-2); background: none; }
+  .tab.on { background: var(--paper); border-color: var(--rule); color: var(--ink); }
+  .drop { margin: 16px 20px; border: 1.5px dashed var(--rule-2); border-radius: 4px; padding: 36px 20px; text-align: center; background: repeating-linear-gradient(0deg, transparent 0 27px, rgba(201, 192, 172, 0.25) 27px 28px); }
+  .drop strong { display: block; font: 400 22px var(--serif); margin-bottom: 6px; }
+  .drop span { font-size: 14px; color: var(--ink-3); }
+  .help { margin: 0 20px; padding: 14px 0 18px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--ink-2); }
+  .help-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip { font: 500 13px var(--sans); padding: 5px 12px; border: 1px solid var(--rule-2); border-radius: 999px; background: var(--sheet); }
+  .chip.on { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+  .steps { margin: 12px 0 0; padding-left: 20px; font-size: 14px; color: var(--ink-2); }
+  .steps li { margin: 4px 0; }
+  kbd { font: 500 12px var(--mono); background: var(--paper); border: 1px solid var(--rule-2); border-bottom-width: 2px; border-radius: 3px; padding: 1px 6px; color: var(--ink); }
+  .intake-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--rule); background: var(--paper); border-radius: 0 0 4px 4px; }
+  .btn { font: 500 15px var(--sans); padding: 11px 22px; border-radius: 3px; border: 1px solid var(--ink); background: var(--ink); color: var(--sheet); }
+  .ghost { font-size: 14px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule-2); }
+
+  /* case file */
+  .case { padding: 24px 0 80px; }
+  .divider { display: flex; align-items: center; gap: 16px; font: 500 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 28px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--rule-2); }
+  .file { background: var(--sheet); border: 1px solid var(--rule-2); border-radius: 4px; box-shadow: 0 1px 0 var(--rule), 0 24px 60px -36px rgba(60, 45, 20, 0.45); }
+  .file-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; padding: 14px 28px; border-bottom: 1px solid var(--rule); font: 400 13px var(--mono); color: var(--ink-3); }
+
+  .verdict { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center; padding: 32px 28px; border-bottom: 1px solid var(--rule); }
+  .stamp { font: 500 15px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--pen); border: 2.5px solid var(--pen); border-radius: 4px; padding: 12px 18px; transform: rotate(-3deg); line-height: 1.3; text-align: center; box-shadow: inset 0 0 0 3px var(--sheet), inset 0 0 0 4px var(--pen); }
+  .stamp small { display: block; font-size: 11px; letter-spacing: 0.1em; opacity: 0.85; }
+  .verdict h2 { font: 400 30px/1.15 var(--serif); margin: 0 0 8px; letter-spacing: -0.01em; }
+  .verdict p { margin: 0; color: var(--ink-2); }
+
+  .exhibit { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); border-bottom: 1px solid var(--rule); }
+  .exhibit-mail { padding: 28px; border-right: 1px solid var(--rule); }
+  .label { font: 500 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 14px; }
+  .mail { border: 1px solid var(--rule); border-radius: 4px; background: #fff; padding: 20px 22px; font-size: 15px; }
+  .mail-from { display: flex; gap: 12px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid #eee; margin-bottom: 14px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: #e8e3d6; display: grid; place-items: center; font: 500 14px var(--sans); color: var(--ink-2); }
+  .mail-from b { font-weight: 500; }
+  .mail-from div span:not(.n) { display: block; font: 400 13px var(--mono); color: var(--ink-3); }
+  .mail-subject { font-weight: 600; margin: 0 0 10px; }
+  .mark-u { text-decoration: underline wavy var(--pen); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+  .n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--pen); color: var(--pen); font: 500 11px var(--mono); vertical-align: 2px; margin-left: 6px; background: var(--sheet); }
+  .fake-btn { display: inline-block; margin: 6px 0 10px; padding: 9px 16px; background: #0b57d0; color: #fff; border-radius: 4px; font-size: 14px; outline: 2px solid var(--pen); outline-offset: 3px; }
+  .mail p { margin: 0 0 10px; color: #333; }
+
+  .notes { padding: 28px; background: linear-gradient(90deg, var(--rule) 0 1px, transparent 1px) 0 0 / 100% 100% no-repeat; }
+  .note { padding: 0 0 22px; margin-bottom: 22px; border-bottom: 1px dashed var(--rule-2); }
+  .note:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+  .note h3 { display: flex; align-items: center; gap: 10px; font: 500 16px var(--sans); margin: 0 0 12px; }
+  .note h3 .n { margin: 0; }
+  .sr { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 4px 12px; font-size: 14px; }
+  .sr dt { font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding-top: 3px; }
+  .sr dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere; }
+  .sr dd.real { color: var(--pen); }
+  .sr dd.real mark { background: var(--pen-wash); color: var(--pen); padding: 0 2px; border-radius: 2px; }
+  .why { font-size: 14px; color: var(--ink-2); margin: 10px 0 0; }
+
+  .evidence { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ev { padding: 24px 28px; border-right: 1px solid var(--rule); }
+  .ev:last-child { border-right: 0; }
+  .ev h4 { font: 500 15px var(--sans); margin: 0 0 14px; }
+  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .checks li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .pill { font: 500 12px var(--mono); padding: 2px 9px; border-radius: 3px; }
+  .fail { background: var(--pen-wash); color: var(--pen); }
+  .soft { background: var(--warn-wash); color: var(--warn); }
+  .pass { background: var(--ok-wash); color: var(--ok); }
+  .route { list-style: none; padding: 0; margin: 0; position: relative; }
+  .route li { position: relative; padding: 0 0 16px 22px; font-size: 13px; }
+  .route li::before { content: ""; position: absolute; left: 5px; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+  .route li::after { content: ""; position: absolute; left: 8px; top: 18px; bottom: 2px; width: 1px; background: var(--rule-2); }
+  .route li:last-child::after { display: none; }
+  .route b { display: block; font: 500 13px var(--mono); }
+  .route span { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
+  .route li.origin::before { background: var(--pen); }
+
+  .todo { padding: 28px; display: grid; grid-template-columns: 220px 1fr; gap: 24px; background: var(--paper); border-radius: 0 0 4px 4px; }
+  .todo h4 { font: 400 22px var(--serif); margin: 0; }
+  .todo ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--ink-2); }
+  .todo ol b { color: var(--ink); font-weight: 500; }
+
+  footer { border-top: 1px solid var(--rule); padding: 28px 0 48px; font-size: 14px; color: var(--ink-3); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+  @media (max-width: 860px) {
+    .hero, .exhibit, .evidence, .todo { grid-template-columns: 1fr; }
+    .hero { padding-top: 40px; gap: 36px; }
+    .exhibit-mail { border-right: 0; border-bottom: 1px solid var(--rule); }
+    .ev { border-right: 0; border-bottom: 1px solid var(--rule); }
+    .verdict { grid-template-columns: 1fr; }
+    .stamp { justify-self: start; }
+    .links a:not(:last-child) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="#">
+      <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+        <rect x="2.5" y="6.5" width="19" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M3 7.5l9 6.5 9-6.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="20" cy="19" r="5" fill="#fbf9f4" stroke="#b42318" stroke-width="1.8"/>
+        <path d="M23.6 22.6l3 3" stroke="#b42318" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      phish-check
+    </a>
+    <div class="links"><a href="#">How it works</a><a href="#">Privacy</a><a href="#">GitHub ↗</a></div>
+  </nav>
+
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Free email inspector · Runs in your browser</p>
+      <h1>Is this email really who it <em>says</em> it is?</h1>
+      <p class="lede">Hand over a suspicious email. We'll show you who actually sent it, where its links really go, and what its attachments really are, in plain language.</p>
+      <ul class="trust">
+        <li><span class="tick">01</span><span><b>Never leaves your device.</b> The email is read and checked inside this tab.</span></li>
+        <li><span class="tick">02</span><span><b>Never opens a link.</b> We read where links point, we don't visit them.</span></li>
+        <li><span class="tick">03</span><span><b>Nothing is stored.</b> Close the tab and it's gone.</span></li>
+      </ul>
+    </div>
+
+    <div class="intake">
+      <div class="intake-head"><span>Evidence intake</span><span>No. 0001</span></div>
+      <div class="tabs"><button class="tab on">Upload file</button><button class="tab">Paste source</button></div>
+      <div class="drop">
+        <strong>Drop the email here</strong>
+        <span>.eml or Outlook .msg · or <u>choose a file</u></span>
+      </div>
+      <div class="help">
+        Where do I find this?
+        <div class="help-row"><span class="chip on">Gmail</span><span class="chip">Outlook</span><span class="chip">Apple Mail</span><span class="chip">Yahoo</span></div>
+        <ol class="steps">
+          <li>Open the email and click <kbd>⋮</kbd> next to Reply</li>
+          <li>Choose <kbd>Download message</kbd></li>
+          <li>Drag the downloaded file into the box above</li>
+        </ol>
+      </div>
+      <div class="intake-foot"><a class="ghost" href="#">Try a sample email</a><button class="btn">Inspect email</button></div>
+    </div>
+  </section>
+
+  <section class="case">
+    <div class="divider">Case file</div>
+    <article class="file">
+      <div class="file-head"><span>Case A7F3-21 · "Action required: your account has been limited"</span><span>Inspected 25 Oct 2026, 12:41 · in your browser</span></div>
+
+      <div class="verdict">
+        <div class="stamp">Likely<br>phishing<small>3 disguises found</small></div>
+        <div>
+          <h2>This email pretends to be PayPal. It isn't.</h2>
+          <p>Don't click its link or reply. If you have a PayPal account, open the app or type paypal.com yourself to check it.</p>
+        </div>
+      </div>
+
+      <div class="exhibit">
+        <div class="exhibit-mail">
+          <p class="label">Exhibit A · What you saw</p>
+          <div class="mail">
+            <div class="mail-from">
+              <div class="avatar">P</div>
+              <div><b class="mark-u">PayPal Service</b><span class="n">1</span><span>to me · Fri 23 Oct, 09:41</span></div>
+            </div>
+            <p class="mail-subject">Action required: your account has been limited</p>
+            <p>Dear Customer,</p>
+            <p>We noticed unusual activity on your account and have temporarily limited it. To restore full access, confirm your details within <span class="mark-u">24 hours</span><span class="n">3</span>:</p>
+            <span class="fake-btn">https://www.paypal.com/signin</span><span class="n">2</span>
+            <p>If you do not confirm, your account will be permanently suspended.</p>
+          </div>
+        </div>
+
+        <div class="notes">
+          <p class="label">Inspector's notes · What's really there</p>
+          <div class="note">
+            <h3><span class="n">1</span> The sender isn't PayPal</h3>
+            <dl class="sr">
+              <dt>You see</dt><dd>PayPal Service</dd>
+              <dt>Really</dt><dd class="real">service@paypa<mark>1</mark>-security.test</dd>
+            </dl>
+            <p class="why">The name is free to type. The address uses a <b>1</b> in place of an <b>l</b>, and PayPal's own mail servers didn't send it.</p>
+          </div>
+          <div class="note">
+            <h3><span class="n">2</span> The link goes somewhere else</h3>
+            <dl class="sr">
+              <dt>You see</dt><dd>https://www.paypal.com/signin</dd>
+              <dt>Really</dt><dd class="real">http://<mark>paypa1-security.test</mark>/login/verify?u=you@…</dd>
+            </dl>
+            <p class="why">The link text is just a label. Clicking it opens a lookalike site, and your email address is already filled into the link.</p>
+          </div>
+          <div class="note">
+            <h3><span class="n">3</span> It rushes you</h3>
+            <p class="why" style="margin:0">"Within 24 hours" and "permanently suspended" are pressure tactics. Real companies don't threaten deadlines by email.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="evidence">
+        <div class="ev">
+          <h4>Sender checks</h4>
+          <ul class="checks">
+            <li><span>Domain policy (DMARC)</span><span class="pill fail">fail</span></li>
+            <li><span>Allowed server (SPF)</span><span class="pill soft">softfail</span></li>
+            <li><span>Signature (DKIM)</span><span class="pill fail">none</span></li>
+            <li><span>Replies go to</span><span class="pill fail">other domain</span></li>
+          </ul>
+        </div>
+        <div class="ev">
+          <h4>The route it took</h4>
+          <ol class="route">
+            <li class="origin"><b>vps-77.hosting.test</b><span>198.51.100.77 · rented server</span></li>
+            <li><b>mx.inbox.example</b><span>your mail provider · 02:41:18</span></li>
+          </ol>
+        </div>
+        <div class="ev">
+          <h4>Attachments</h4>
+          <p style="margin:0;font-size:14px;color:var(--ink-2)">None. There's also a hidden 1×1 tracking image that tells the sender when you open the email.</p>
+        </div>
+      </div>
+
+      <div class="todo">
+        <h4>What to do now</h4>
+        <ol>
+          <li><b>Don't click the link</b> or download anything from this email.</li>
+          <li><b>Report it.</b> In Gmail: <kbd>⋮</kbd> → <kbd>Report phishing</kbd>.</li>
+          <li><b>Already clicked and signed in?</b> Change your PayPal password now and turn on two-step login.</li>
+        </ol>
+      </div>
+    </article>
+  </section>
+
+  <footer><span>Built by Abdullah · Open source on GitHub</span><span>Nothing you check here is stored.</span></footer>
+</div>
+</body>
+</html>

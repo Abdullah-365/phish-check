@@ -1,0 +1,27 @@
+Delivered-To: alex@inbox.example
+Received: by 2002:a05:6a00:1a8c with SMTP id x12csp618pfv;
+        Fri, 23 Oct 2026 14:02:44 -0700 (PDT)
+Authentication-Results: mx.inbox.example;
+       dkim=pass header.i=@freemail.test header.s=fm1 header.b=Zp81Lw0c;
+       spf=pass (inbox.example: domain of it.helpdesk.notice@freemail.test designates 203.0.113.14 as permitted sender) smtp.mailfrom=it.helpdesk.notice@freemail.test;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=freemail.test
+Return-Path: <it.helpdesk.notice@freemail.test>
+Received: from out-14.freemail.test (out-14.freemail.test. [203.0.113.14])
+        by mx.inbox.example with ESMTPS id 7c8d9e0f1a
+        for <alex@inbox.example>;
+        Fri, 23 Oct 2026 14:02:43 -0700 (PDT)
+From: "Microsoft 365 Admin" <it.helpdesk.notice@freemail.test>
+To: alex@inbox.example
+Subject: Your password expires today
+Date: Fri, 23 Oct 2026 17:02:40 -0400
+Message-ID: <CAF1x9q2-fm1@mail.freemail.test>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<div style="font-family:Segoe UI,Arial,sans-serif">
+<p><b>Microsoft 365</b></p>
+<p>The password for alex@inbox.example expires today.</p>
+<p>Keep your current password to avoid losing access to email and files.</p>
+<p><a href="https://login-m365-keep.test/owa/?email=alex%40inbox.example">Keep current password</a></p>
+<p style="color:#888">Microsoft Corporation, One Microsoft Way, Redmond, WA</p>
+</div>

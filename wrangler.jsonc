@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "phish-check",
+  "main": "apps/worker/src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "apps/web/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Only API routes reach the Worker code; everything else is a static file.
+    "run_worker_first": ["/api/*"]
+  },
+  "observability": {
+    "enabled": true
+  }
+  // Ship phase: serve on the custom domain instead of *.workers.dev.
+  // "routes": [{ "pattern": "phish.abdullah1.dev", "custom_domain": true }]
+}

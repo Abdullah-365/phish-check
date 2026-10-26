@@ -1,0 +1,34 @@
+Delivered-To: alex@company.example
+Received: by 2002:a05:6a00:1a8c with SMTP id x12csp811pfv;
+        Mon, 19 Oct 2026 08:47:02 -0700 (PDT)
+Authentication-Results: mx.company.example;
+       dkim=pass header.i=@freemail.test header.s=fm1 header.b=Pq9Wm2Ld;
+       spf=pass (company.example: domain of sam.rivera.ceo@freemail.test designates 203.0.113.22 as permitted sender) smtp.mailfrom=sam.rivera.ceo@freemail.test;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=freemail.test
+Return-Path: <sam.rivera.ceo@freemail.test>
+Received: from out-22.freemail.test (out-22.freemail.test. [203.0.113.22])
+        by mx.company.example with ESMTPS id 5e6f7a8b9c
+        for <alex@company.example>;
+        Mon, 19 Oct 2026 08:47:01 -0700 (PDT)
+From: "Sam Rivera" <sam.rivera.ceo@freemail.test>
+Reply-To: <sam.rivera.office@mailbox.test>
+To: alex@company.example
+Subject: Quick favour - are you at your desk?
+Date: Mon, 19 Oct 2026 11:46:58 -0400
+Message-ID: <CAF2r7k1-fm1@mail.freemail.test>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Alex,
+
+I'm in back-to-back meetings and can't take calls. I need you to pick up
+5 x $200 gift cards for a client appreciation today. Keep this between us
+for now, it's a surprise.
+
+Scratch the backs and email me photos of the codes as soon as you have them.
+
+Thanks,
+Sam Rivera
+CEO
+
+Sent from my phone
