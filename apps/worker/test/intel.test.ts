@@ -7,9 +7,18 @@ const env = {} as Env;
 
 /** A fake internet: just enough of each service for the lookups to run offline. */
 function fakeNetwork(registeredDaysAgo: number) {
-  return vi.fn(async (input: RequestInfo | URL) => {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+    if (url === "https://urlhaus-api.abuse.ch/v1/url/" || url === "https://mb-api.abuse.ch/api/v1/") {
+      // abuse.ch answers 401 without a valid Auth-Key, and otherwise in each API's own format.
+      if (new Headers(init?.headers).get("auth-key") !== "test-key") return json({ query_status: "unknown_auth_key" }, 401);
+      const form = new URLSearchParams(String(init?.body ?? ""));
+      if (url.startsWith("https://urlhaus")) {
+        return json(new URL(form.get("url")!).hostname === "malware.test" ? { query_status: "ok", threat: "malware_download" } : { query_status: "no_results" });
+      }
+      return json(form.get("hash")!.startsWith("e") ? { query_status: "ok", data: [{ signature: "WannaCry" }] } : { query_status: "hash_not_found" });
+    }
     if (url.startsWith("https://data.iana.org/rdap/dns.json")) return json({ services: [[["test"], ["https://rdap.registry.test/"]]] });
     if (url === "https://rdap.registry.test/domain/fresh.test") {
       return json({
@@ -71,6 +80,28 @@ describe("lookup", () => {
   it("matches big shared platforms by exact page only", async () => {
     const result = await lookup({ domains: [], urls: ["https://drive.google.com/file/d/bad/view", "https://drive.google.com/file/d/other/view"], hashes: [] }, {});
     expect(result.urls.map((u) => u.listings.length)).toEqual([1, 0]);
+  });
+
+  it("reads URLhaus and MalwareBazaar answers with the abuse.ch key", async () => {
+    const known = "e".repeat(64);
+    const unknown = "0".repeat(64);
+    const result = await lookup({ domains: [], urls: ["https://malware.test/payload.exe", "https://clean.test/"], hashes: [known, unknown] }, { ABUSECH_KEY: "test-key" });
+    expect(result.urls).toEqual([
+      { url: "https://malware.test/payload.exe", listings: [{ source: "URLhaus", threat: "malware download" }] },
+      { url: "https://clean.test/", listings: [] },
+    ]);
+    expect(result.hashes).toEqual([
+      { sha256: known, listings: [{ source: "MalwareBazaar", threat: "malware (WannaCry)" }] },
+      { sha256: unknown, listings: [] },
+    ]);
+    expect(result.sources).toEqual(expect.arrayContaining(["MalwareBazaar", "URLhaus"]));
+    expect(result.unavailable).toEqual([]);
+  });
+
+  it("reports abuse.ch as unavailable when the key is wrong, instead of calling everything clean silently", async () => {
+    const result = await lookup({ domains: [], urls: ["https://malware.test/payload.exe"], hashes: ["e".repeat(64)] }, { ABUSECH_KEY: "wrong-key" });
+    expect(result.unavailable).toEqual(["MalwareBazaar", "URLhaus"]);
+    expect(result.hashes[0]?.listings).toEqual([]);
   });
 
   it("needs several antivirus engines to agree before calling a file malware", async () => {

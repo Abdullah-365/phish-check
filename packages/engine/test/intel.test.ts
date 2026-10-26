@@ -63,6 +63,19 @@ describe("applyIntel", () => {
     expect(listed.target).toEqual({ kind: "node", id: "id" in button ? button.id : "" });
   });
 
+  it("calls a phishing listing phishing, and a URLhaus listing malware", async () => {
+    const analysis = await sample("lookalike-paypal.eml");
+    const listed = (source: string, threat: string) =>
+      applyIntel(analysis, { ...empty, urls: [{ url: "http://paypa1-security.test/login/verify", listings: [{ source, threat }] }] }).findings.find(
+        (f) => f.rule === "intel-blocklisted",
+      )!;
+    expect(listed("OpenPhish", "phishing").title).toBe("A link is on a phishing blocklist");
+    const malware = listed("URLhaus", "malware download");
+    expect(malware.title).toBe("A link is on a malware blocklist");
+    expect(malware.explanation).toMatch(/^URLhaus has already reported this address for spreading malware/);
+    expect(malware.real?.text).toContain("URLhaus: malware download");
+  });
+
   it("lists a link only the blocklist knew about, even when the email looked clean", async () => {
     const analysis = await sample("legit-order-confirmation.eml");
     expect(analysis.indicators).toEqual([]);

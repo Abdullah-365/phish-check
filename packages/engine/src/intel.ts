@@ -205,14 +205,19 @@ export function applyIntel(analysis: Analysis, intel: IntelResponse, now = new D
     const listing = u.listings[0];
     if (!listing) continue;
     const where = locate(analysis, u.url);
+    // OpenPhish and Safe Browsing's social-engineering list hold fake pages; URLhaus and Safe
+    // Browsing's other lists hold links that hand out malware.
+    const phishing = /phish/i.test(listing.threat);
     findings.push({
       id: `intel-blocklisted-${u.url}`,
       rule: "intel-blocklisted",
       category: "intel",
       severity: "high",
-      title: `A link${where.file ? ` inside ${where.file}` : ""} is on a phishing blocklist`,
+      title: `A link${where.file ? ` inside ${where.file}` : ""} is on a ${phishing ? "phishing" : "malware"} blocklist`,
       real: { text: `${u.url} · ${listing.source}: ${listing.threat}` },
-      explanation: `${listing.source} has already reported this address as ${listing.threat}. Security teams found it on other victims first.`,
+      explanation: phishing
+        ? `${listing.source} has already reported this address as a phishing page. Security teams found it on other victims first.`
+        : `${listing.source} has already reported this address for spreading malware: opening it can download a harmful file. Security teams found it on other victims first.`,
       lensLabel: "Blocklisted",
       target: where.target,
       ...(where.file ? { url: where.href } : {}),
