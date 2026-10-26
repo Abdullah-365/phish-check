@@ -190,21 +190,26 @@ const STATUS: Record<AuthResult, Check["status"]> = {
   unknown: "unknown",
 };
 
+/*
+ * A pass is worded as what the email's headers record, because that's all phish-check knows of it.
+ * Its own checks can contradict a recorded pass, but only the receiving server saw the delivery.
+ * When phish-check verifies a signature itself, the VERIFIED wording below says so instead.
+ */
 const EXPLAIN = {
   dmarc: {
-    pass: "The domain in the From address vouches for this email.",
+    pass: "Its headers record a pass: the domain in the From address vouches for it.",
     fail: "The domain in the From address doesn't vouch for this email.",
     none: "The sender's domain publishes no policy to check against.",
   },
   spf: {
-    pass: "It came from a server the domain lists as its own.",
+    pass: "Its headers record a pass: it came from a server the domain lists as its own.",
     fail: "It came from a server the domain says isn't allowed to send for it.",
     softfail: "It came from a server the domain doesn't list as its own.",
     neutral: "The domain doesn't say whether this server may send for it.",
     none: "The domain doesn't list which servers may send for it.",
   },
   dkim: {
-    pass: "A signature proves it wasn't changed along the way.",
+    pass: "Its headers record a pass: a signature shows it wasn't changed along the way.",
     fail: "Its signature doesn't match, so it may have been changed along the way.",
     none: "Nothing proves the message wasn't changed along the way.",
   },
