@@ -10,8 +10,10 @@
     // Only API routes reach the Worker code; everything else is a static file.
     "run_worker_first": ["/api/*"]
   },
+  // Off on purpose: Workers Logs would store each request's details, including the visitor's IP
+  // address. `wrangler tail` still streams live logs for debugging without keeping them.
   "observability": {
-    "enabled": true
+    "enabled": false
   }
   // Ship phase: serve on the custom domain instead of *.workers.dev.
   // "routes": [{ "pattern": "phish.abdullah1.dev", "custom_domain": true }]

@@ -75,6 +75,7 @@ Blocklists are matched by exact page, and also by whole host for sites that are 
 ## Safety and privacy
 
 - The email itself is never uploaded or stored. There are no cookies and no analytics.
+- The Worker keeps no request logs: Workers Logs are switched off in `wrangler.jsonc`, so visitors' IP addresses aren't stored.
 - With online checks on (the default, with a switch next to the intake), the browser sends only the domains of the sender and links, link addresses (including links found inside attachments) with their query strings removed, and SHA-256 fingerprints of attachments. When a link's path carries the reader's own email address, plainly or in base64, only the site is sent. Domains of big brands, mailbox providers and shared hosting platforms aren't looked up.
 - Neither the browser nor the Worker ever opens a link or loads an image from an analysed email. Online checks ask registries, DNS and blocklists about a link; they never visit it.
 - Attachments are read as bytes and never run.
