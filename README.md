@@ -20,7 +20,7 @@ The engine runs several independent detectors. Each finding has a severity, and 
 | Wording | Scam wording in 20 families (login requests, invoices, parcels, fines, prizes, crypto, sextortion, callback scams, invented deadlines and more) in English, Portuguese, Spanish, German, French, Dutch and Italian, matched on whole words |
 | Evasion | Tricks that hide words from filters: letters from other alphabets, styled maths letters, s p a c e d letters, invisible characters, hidden text, image-only emails, mass mail to strangers, unfilled template placeholders |
 | Online (optional) | Domain age and registrar (RDAP), whether a domain exists and can receive mail (DNS), DKIM public keys and SPF records (DNS), phishing feeds (OpenPhish; Google Safe Browsing and URLhaus with keys), and file fingerprints against MalwareBazaar and VirusTotal (with keys). Links found inside attachments, like the one link in a phishing PDF, are checked too. |
-| Forwards | **Forward as attachment** is unwrapped, so the original is judged rather than the forward. Plain inline forwards fall back to the quoted sender and say the check is partial, but only when the outer email really is a forward (a "Fwd:" subject from a sender that authenticates), so a phish can't paste in a fake "Forwarded message" block to hide its real sender. |
+| Forwards | **Forward as attachment** is unwrapped, so the original is judged rather than the forward. Plain inline forwards fall back to the quoted sender and say the check is partial, but only when the outer email really is a forward: a "Fwd:" subject, signed by the forwarder's own domain. A phish can't paste in a fake "Forwarded message" block to hide its real sender, and a forged SPF pass doesn't count, since a signature can be checked and a claimed pass can't. |
 
 Each finding comes as a plain-English title, a "You see / Really" pair and an explanation. An **Analyst** view adds the delivery route, the domains checked online, defanged indicators (query strings removed, since they often carry the recipient's address) and the key headers with the suspicious parts highlighted.
 
@@ -39,7 +39,7 @@ Measured with `scripts/evaluate.mjs` against real phishing caught by honeypots (
 | Set | Phishing caught | of which "Likely phishing" | Legitimate mail flagged |
 |---|---|---|---|
 | Dev: 841 phishing, 2,750 legitimate | 88.8% | 65.2% | 0.7% (0.1% "Likely phishing") |
-| Held out: 500 phishing, 1,400 legitimate | **90.6%** | 64.2% | **0.7%** (none "Likely phishing") |
+| Held out: 500 phishing, 1,400 legitimate | **90.8%** | 64.2% | **0.7%** (none "Likely phishing") |
 | Held out, engine only | 78.2% | 35.8% | 0.7% (none "Likely phishing") |
 
 "Phishing caught" means a verdict of Likely phishing or Suspicious; an email the engine can't read counts as missed. Read the numbers with these limits in mind:
@@ -106,7 +106,12 @@ The handler is `email()` in `apps/worker/src/index.ts` (code in `email.ts`, repl
 
 ## Known limits
 
-- **A carefully copied SPF claim.** SPF, DKIM and DMARC are read from the topmost `Authentication-Results` header, the one the reader's own provider adds when the email arrives (Gmail, Outlook and Yahoo always add one). A mail server that adds none leaves only headers the sender wrote. Forged DKIM passes are caught against the signatures themselves, and a forged SPF pass is caught when the server it names never appears in the email's Received lines or isn't one the domain allows (see [How it works](#how-it-works)). A forger who copies a genuine header and also writes a matching Received line, for a server the domain really allows, can still fake an SPF pass: which server really delivered the email is known only to the server that received it.
+- **A copied SPF claim can still change two cards, not the verdict.** SPF, DKIM and DMARC are read from the topmost `Authentication-Results` header, the one the reader's own provider adds when the email arrives (Gmail, Outlook and Yahoo always add one). A mail server that adds none leaves only headers the sender wrote. Forged DKIM passes are caught against the signatures themselves. A forged SPF pass is caught when:
+  - the server it names never appears in the email's Received lines,
+  - the domain doesn't allow that server, or
+  - the receiving server's own Received-SPF line disagrees. That line and the claim agreed on result, server and domain in all 1,296 corpus emails that had both.
+
+  What's left is a server that records neither line, plus a forger who copies a genuine header and writes a matching Received line. Then the SPF and DMARC cards read "Pass" instead of "Unknown", but the verdict can't move: an unknown result and a pass weigh the same, and a forward is trusted only when the forwarder's own domain signed it. Telling the two apart would need the receiving server's own record of which server delivered the email, and that record isn't in the email.
 - **Signatures broken in transit.** Some company mail systems change an email after checking it, for example by tagging the subject or rewriting links. Common subject tags like `[EXTERNAL]` are allowed for and a changed body is never held against an email, but other changes to signed headers make a genuine signature fail, which phish-check reports as a medium warning, not as proof.
 - **Links are never opened.** That keeps you safe, but a page that only turns malicious after a redirect chain, or only for some visitors, can't be seen. Blocklists and the link's own address are what's checked.
 - **Rich-text-only Outlook files.** A `.msg` is read through its stored plain-text and HTML bodies. The rare file that stores its body only as rich text (RTF) is checked on its headers and attachments alone.

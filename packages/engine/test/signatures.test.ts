@@ -153,6 +153,62 @@ describe("DKIM signatures as evidence", () => {
     expect(honest.findings.some((f) => f.rule === "auth-forged")).toBe(false);
   });
 
+  it("catches a copied SPF claim, delivery line and all, when the receiving server's own Received-SPF disagrees", async () => {
+    // The forger copied a genuine-looking header and a matching Received line; the small provider
+    // that really received it recorded its own SPF check on top, from the forger's actual server.
+    const email = (receivedSpf: string) =>
+      [
+        receivedSpf,
+        "Received: from attacker.example (attacker.example [203.0.113.66]) by mx.small.example with ESMTP; Mon, 26 Oct 2026 09:00:05 +0000",
+        "Authentication-Results: mx.google.com; spf=pass (google.com: domain of bounce@paypal.com designates 192.0.2.1 as permitted sender) smtp.mailfrom=bounce@paypal.com; dmarc=pass header.from=paypal.com",
+        "Received: from mail.paypal.com (mail.paypal.com [192.0.2.1]) by mx.google.com with ESMTPS; Mon, 26 Oct 2026 09:00:04 +0000",
+        "From: PayPal <service@paypal.com>",
+        "To: alex@inbox.example",
+        "Subject: Your account",
+        "Content-Type: text/plain",
+        "",
+        "Hello.",
+      ].join("\r\n");
+    const forged = await analyzeEmail(email("Received-SPF: softfail (mx.small.example: domain of bounce@paypal.com does not designate 203.0.113.66 as permitted sender) client-ip=203.0.113.66;"));
+    expect(forged.findings.find((f) => f.rule === "auth-forged")).toMatchObject({
+      id: "auth-forged-receiver",
+      severity: "high",
+      real: { text: "claims spf=pass for paypal.com from 192.0.2.1 · Received-SPF says softfail for paypal.com from 203.0.113.66" },
+    });
+    expect(forged.auth).toMatchObject({ spf: "unknown", dmarc: "unknown" });
+    // A Received-SPF line that agrees on result, server and domain backs the claim.
+    const agreeing = await analyzeEmail(email("Received-SPF: pass (google.com: domain of bounce@paypal.com designates 192.0.2.1 as permitted sender) client-ip=192.0.2.1;"));
+    expect(agreeing.findings.some((f) => f.rule === "auth-forged")).toBe(false);
+  });
+
+  it("trusts a plain forward only when the forwarder's own domain signed it", async () => {
+    const forward = (results: string, signer: string | null) =>
+      [
+        "Received: from out.inbox.example (out.inbox.example [192.0.2.80]) by mx.inbox.example with ESMTPS; Mon, 26 Oct 2026 09:00:05 +0000",
+        `Authentication-Results: mx.inbox.example; ${results}`,
+        ...(signer ? [`DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=${signer}; s=s1; h=from:to:subject; bh=placeholder; b=placeholder`] : []),
+        "From: Alex Chen <alex@inbox.example>",
+        "To: alex@inbox.example",
+        "Subject: Fwd: Your account is limited",
+        "Content-Type: text/plain",
+        "",
+        "---------- Forwarded message ---------",
+        "From: PayPal <service@paypa1-security.test>",
+        "Subject: Your account is limited",
+        "",
+        "Confirm your details within 24 hours.",
+      ].join("\r\n");
+    const spf = "spf=pass (inbox.example: domain of alex@inbox.example designates 192.0.2.80 as permitted sender) smtp.mailfrom=alex@inbox.example";
+    // SPF and DMARC passes alone: a forged header can claim those, so it's judged as it is.
+    expect((await analyzeEmail(forward(`${spf}; dmarc=pass header.from=inbox.example`, null))).forwarded).toBeNull();
+    // Signed, but by some other domain.
+    expect((await analyzeEmail(forward(`${spf}; dkim=pass header.d=mailer.example`, "mailer.example"))).forwarded).toBeNull();
+    // Signed by the forwarder's own domain: the quoted original is what gets judged.
+    const trusted = await analyzeEmail(forward(`${spf}; dkim=pass header.d=inbox.example; dmarc=pass header.from=inbox.example`, "inbox.example"));
+    expect(trusted.forwarded).toMatchObject({ mode: "inline", by: "alex@inbox.example" });
+    expect(trusted.sender?.address).toBe("service@paypa1-security.test");
+  });
+
   it("catches a header claiming a signature the email doesn't carry, offline", async () => {
     const analysis = await analyzeEmail(await delivered("spf=pass; dkim=pass header.d=paypal.com; dmarc=pass header.from=paypal.com"));
     expect(analysis.findings.find((f) => f.rule === "auth-forged")).toMatchObject({ severity: "high", real: { text: "claims dkim=pass for paypal.com · no signature from it" } });

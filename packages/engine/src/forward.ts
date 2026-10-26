@@ -5,13 +5,14 @@ import type { AuthSummary, Mailbox } from "./types.ts";
 const FORWARD_SUBJECT = /^\s*(?:fwd?|wg|tr|rv|enc|i|vs|vb|doorst|vl|pd)\s*:/i;
 
 /**
- * Whether the outer email can be someone's own forward: a forward subject, from a sender whose
- * domain vouches for it. Without this, a phish could paste a fake "Forwarded message" block
- * to have its real sender, authentication and spam verdicts ignored.
+ * Whether the outer email can be someone's own forward: a forward subject, signed by the sender's
+ * own domain with a signature the header says passed. Without this, a phish could paste a fake
+ * "Forwarded message" block to have its real sender, authentication and spam verdicts ignored.
+ * An SPF pass alone isn't enough: a forged header can claim one, while a forged signature from
+ * the sender's domain is caught. Every major mail service signs what its users send.
  */
-export function trustedForward(subject: string, auth: AuthSummary): boolean {
-  const vouched = auth.dmarc === "pass" || (auth.dmarc !== "fail" && (auth.dkim === "pass" || auth.spf === "pass"));
-  return FORWARD_SUBJECT.test(subject) && vouched;
+export function trustedForward(subject: string, auth: AuthSummary, signedBySender: boolean): boolean {
+  return FORWARD_SUBJECT.test(subject) && signedBySender && auth.dkim === "pass" && auth.dmarc !== "fail";
 }
 
 const MARKERS = [

@@ -1,5 +1,5 @@
 import { attachmentChecks, readerAttachments } from "./attachments.ts";
-import { buildChecks, claimedDkimDomains, claimedSpf, DISTRUSTED_AUTH, failedChecks, forgedAuthFinding, readAuth, unbackedClaims } from "./auth.ts";
+import { buildChecks, claimedDkimDomains, claimedSpf, DISTRUSTED_AUTH, failedChecks, forgedAuthFinding, readAuth, receiverSpf, unbackedClaims } from "./auth.ts";
 import { BRANDS, brandsMentionedIn } from "./brands.ts";
 import {
   brandClaimFinding,
@@ -13,7 +13,7 @@ import {
 } from "./checks.ts";
 import { extractContent, images, links, plainText } from "./content.ts";
 import { dkimSignatures, verifySignatures, type DkimKey, type DkimResult } from "./dkim.ts";
-import { latinize } from "./domains.ts";
+import { addressDomain, latinize, registrable } from "./domains.ts";
 import { recordedAddresses, sameIp } from "./ip.ts";
 import { evasionFindings } from "./evasion.ts";
 import { indicators, keyHeaders } from "./evidence.ts";
@@ -74,13 +74,31 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
   const claimedPass = claimedSpf(email.authenticationResults[0]);
   const recorded = recordedAddresses(email.received);
   const unrecorded = claimedPass && recorded && !recorded.some((ip) => sameIp(ip, claimedPass.ip)) ? claimedPass : null;
-  const forged = unbacked.length > 0 || unrecorded !== null;
+  // The receiving server's own Received-SPF line agreed with the claim on result, server and domain in
+  // every genuine corpus email, so a claimed pass it contradicts was written by the sender.
+  const receiver = receiverSpf(email.headers);
+  const claimsSpfPass = /(?:^|[;\s])spf\s*=\s*pass\b/i.test(email.authenticationResults[0] ?? "");
+  const contradicted =
+    receiver &&
+    claimsSpfPass &&
+    (receiver.result !== "pass" ||
+      (claimedPass && receiver.ip && !sameIp(receiver.ip, claimedPass.ip)) ||
+      (claimedPass && receiver.domain && registrable(receiver.domain) !== registrable(claimedPass.domain)))
+      ? receiver
+      : null;
+  const forged = unbacked.length > 0 || unrecorded !== null || contradicted !== null;
   const outerAuth = forged ? DISTRUSTED_AUTH : readAuth(email);
   const spfClaim = forged ? null : claimedPass;
 
   // A plain "Forward" loses the original headers; only the quoted From line survives.
   // The raw text keeps the quoted header lines intact, so prefer it over the reading view.
-  const quoted = embedded || !trustedForward(email.subject, outerAuth) ? null : quotedOriginal(email.text || bodyText);
+  // Signature headers can be read even from a rebuilt .msg; only verifying them needs the original bytes.
+  const senderDomain = email.from?.address ? registrable(addressDomain(email.from.address)) : null;
+  const signedBySender =
+    !!senderDomain &&
+    claimedDkimDomains(email.authenticationResults[0]).some((d) => registrable(d) === senderDomain) &&
+    (dkim?.signatures ?? dkimSignatures(email.raw)).some((s) => registrable(s.domain) === senderDomain);
+  const quoted = embedded || !trustedForward(email.subject, outerAuth, signedBySender) ? null : quotedOriginal(email.text || bodyText);
   const partial = quoted !== null;
   const forwarded = embedded
     ? { mode: "attachment" as const, by: outer.from?.address ?? "" }
@@ -137,6 +155,14 @@ export async function analyzeParsed(outer: ParsedEmail): Promise<Analysis> {
     ...(partial ? [] : authFindings(auth, arcPassed)),
     ...(unbacked.length ? [forgedAuthFinding(`claims dkim=pass for ${unbacked.join(", ")} · no signature from it`, "dkim")] : []),
     ...(unrecorded ? [forgedAuthFinding(`claims spf=pass for ${unrecorded.domain} from ${unrecorded.ip} · no Received line records that server`, "spf")] : []),
+    ...(contradicted
+      ? [
+          forgedAuthFinding(
+            `claims spf=pass${claimedPass ? ` for ${claimedPass.domain} from ${claimedPass.ip}` : ""} · Received-SPF says ${contradicted.result}${contradicted.domain ? ` for ${contradicted.domain}` : ""}${contradicted.ip ? ` from ${contradicted.ip}` : ""}`,
+            "receiver",
+          ),
+        ]
+      : []),
     ...(reply.finding ? [reply.finding] : []),
     ...linkFindings(ctx),
     ...formFindings(content),

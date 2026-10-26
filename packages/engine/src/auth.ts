@@ -57,6 +57,8 @@ export function unbackedClaims(claimed: string[], signatures: { domain: string }
 const FORGED = {
   dkim: "A header in the email claims it passed the checks that prove who sent it, but the email carries no signature to back that up. Only a sender trying to look legitimate fakes this.",
   spf: "A header in the email claims it passed SPF for a server that, by the email's own delivery record, never handled it. Mail providers record the server they check, so only a sender trying to look legitimate fakes this.",
+  receiver:
+    "A header in the email claims it passed SPF, but the receiving server's own record of that check (its Received-SPF line) says otherwise. A mail server doesn't contradict itself, so the claim was written by the sender to look legitimate.",
 };
 
 /** A header claim the email itself disproves, which needs no key or DNS lookup to see. */
@@ -129,6 +131,24 @@ export function claimedSpf(results: string | undefined): SpfClaim | null {
 
 /** Four IPv4 octets, or anything with colons (IPv6); the Worker checks it properly. */
 const IP_ADDRESS = /^(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9a-f]*:[0-9a-f:.]*)$/i;
+
+export interface ReceiverSpf {
+  result: AuthResult;
+  ip: string | null;
+  domain: string | null;
+}
+
+/**
+ * The newest Received-SPF line: the receiving server's own record of its SPF check, with the
+ * server address and domain it checked. A forger's lines can only sit below it.
+ */
+export function receiverSpf(headers: ParsedEmail["headers"]): ReceiverSpf | null {
+  const value = headers.find((h) => h.name === "received-spf")?.value.replace(/\s+/g, " ").trim();
+  if (!value) return null;
+  const ip = value.match(/\bclient-ip=([0-9a-f.:]+)/i)?.[1] ?? value.match(/\bdesignates ([0-9a-f.:]+) as permitted/i)?.[1] ?? null;
+  const domain = value.match(/\bdomain of (?:[^\s@]+@)?([a-z0-9.-]+\.[a-z0-9-]+)/i)?.[1] ?? value.match(/\benvelope-from="?(?:[^\s@"]+@)?([a-z0-9.-]+\.[a-z0-9-]+)/i)?.[1] ?? null;
+  return { result: toResult(value.split(/[\s(;]/)[0]), ip: ip && IP_ADDRESS.test(ip) ? ip : null, domain: domain?.toLowerCase() ?? null };
+}
 
 /** A claimed SPF pass that the domain's own record doesn't support, for the server the claim names. */
 export function spfMismatchFinding(detail: string): Finding {
