@@ -1,5 +1,6 @@
 import PostalMime from "postal-mime";
 import type { Address, Email } from "postal-mime";
+import { isOutlookMsg, msgToEml } from "./msg.ts";
 import type { AttachmentInfo, HeaderField, Mailbox, ParsedEmail } from "./types.ts";
 
 export type RawEmail = string | ArrayBuffer | Uint8Array;
@@ -17,6 +18,15 @@ export class EmailParseError extends Error {
 export async function parseEmail(raw: RawEmail): Promise<ParsedEmail> {
   if (byteLength(raw) > MAX_EMAIL_BYTES) {
     throw new EmailParseError(`Email is larger than ${MAX_EMAIL_BYTES / 1024 / 1024} MB`);
+  }
+  // Outlook's .msg files are rebuilt as standard emails first.
+  if (typeof raw !== "string") {
+    const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+    if (isOutlookMsg(bytes)) {
+      const eml = msgToEml(bytes);
+      if (!eml) throw new EmailParseError("This Outlook file couldn't be read. Try saving the email from Outlook again");
+      return parseAtDepth(eml, 0);
+    }
   }
   return parseAtDepth(raw, 0);
 }

@@ -93,13 +93,6 @@ export function App() {
 
   const inspectFile = useCallback(
     async (file: File) => {
-      if (/\.msg$/i.test(file.name)) {
-        setError({
-          message: "Outlook .msg files aren't supported yet. In Outlook, open the email, choose File then Properties, and paste the Internet headers instead.",
-          help: true,
-        });
-        return;
-      }
       if (file.size > MAX_FILE) {
         setError({ message: "That file is over 10 MB, which is bigger than any normal email." });
         return;

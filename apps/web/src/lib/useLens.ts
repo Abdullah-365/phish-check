@@ -53,18 +53,29 @@ export function useLens(stageRef: RefObject<HTMLDivElement | null>, options: Opt
       return { x: r.left - s.left + radius - 12, y: r.top - s.top + r.height / 2 };
     };
 
+    /**
+     * Every marked element's boxes, relative to the stage. Reading layout on every frame would
+     * stutter on long emails, so they're measured once and again only when the layout changes;
+     * scrolling moves the stage and its contents together, so it never does.
+     */
+    let regions: { el: HTMLElement; left: number; top: number; width: number; height: number }[] | null = null;
+    const measureRegions = () => {
+      const s = stage.getBoundingClientRect();
+      const boxes: NonNullable<typeof regions> = [];
+      for (const el of stage.querySelectorAll<HTMLElement>(".mail-surface [data-target]")) {
+        for (const r of el.getClientRects()) boxes.push({ el, left: r.left - s.left, top: r.top - s.top, width: r.width, height: r.height });
+      }
+      return boxes;
+    };
+
     /** The smallest marked element under a point, so a phrase wins over its paragraph. */
     const regionAt = (x: number, y: number) => {
-      const s = stage.getBoundingClientRect();
+      regions ??= measureRegions();
       let best: { el: HTMLElement; area: number } | null = null;
-      for (const el of stage.querySelectorAll<HTMLElement>(".mail-surface [data-target]")) {
-        for (const r of el.getClientRects()) {
-          const left = r.left - s.left - 8;
-          const top = r.top - s.top - 8;
-          if (x < left || x > left + r.width + 16 || y < top || y > top + r.height + 16) continue;
-          const area = r.width * r.height;
-          if (!best || area < best.area) best = { el, area };
-        }
+      for (const r of regions) {
+        if (x < r.left - 8 || x > r.left + r.width + 8 || y < r.top - 8 || y > r.top + r.height + 8) continue;
+        const area = r.width * r.height;
+        if (!best || area < best.area) best = { el: r.el, area };
       }
       return best?.el ?? null;
     };
@@ -148,10 +159,15 @@ export function useLens(stageRef: RefObject<HTMLDivElement | null>, options: Opt
     stage.addEventListener("pointerleave", onLeave);
 
     const resize = new ResizeObserver(() => {
+      regions = null;
       radius = parseFloat(getComputedStyle(stage).getPropertyValue("--r")) || 84;
       goTo(anchor);
     });
     resize.observe(stage);
+    // Text reflows when the web fonts arrive, sometimes without changing the stage's size.
+    void document.fonts?.ready.then(() => {
+      regions = null;
+    });
 
     const seen = new IntersectionObserver(([entry]) => {
       visible = !!entry?.isIntersecting;

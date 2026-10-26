@@ -10,5 +10,9 @@ export default defineConfig({
     sourcemap: false,
     // Inlined assets become data: URIs, which the strict CSP (font-src 'self') rightly blocks.
     assetsInlineLimit: 0,
+    // The engine chunk (email parser, HTML parser, public suffix list) is about 530 kB and loads
+    // after the page paints; every check needs all of it, so splitting it wouldn't save a byte.
+    // The limit sits just above it, so real growth still warns.
+    chunkSizeWarningLimit: 600,
   },
 });

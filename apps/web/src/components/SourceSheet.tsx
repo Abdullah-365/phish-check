@@ -31,8 +31,8 @@ const GUIDES: Guide[] = [
     ],
     alt: (
       <>
-        Classic Outlook on Windows: open the email, choose <kbd>File</kbd> then <kbd>Properties</kbd>, and copy everything under
-        Internet headers. That checks the sender and the route, but not the links.
+        Classic Outlook on Windows: drag the email from your inbox onto your desktop. That saves a <code>.msg</code> file you can
+        drop onto this page.
       </>
     ),
   },

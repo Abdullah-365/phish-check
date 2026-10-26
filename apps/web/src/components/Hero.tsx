@@ -94,7 +94,7 @@ export function Hero({ example, busy, error, sourceRef, onInspect, onFile, onSam
                 <span>
                   Choose a file
                   <span className="drop-hint">
-                    , or drop a <b>.eml</b> anywhere
+                    , or drop a <b>.eml</b> or <b>.msg</b> anywhere
                   </span>
                 </span>
               </button>

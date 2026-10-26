@@ -2,7 +2,7 @@
 
 **Live at [phish.abdullah1.dev](https://phish.abdullah1.dev)**
 
-Check a suspicious email: paste its original source or drop the file, and get a verdict (**Likely phishing**, **Suspicious**, or **No red flags found**) with the reasons behind it. The email is analysed in your browser and never leaves your device. Optional online checks look up only its domains, link addresses and file fingerprints.
+Check a suspicious email: paste its original source or drop the file (an `.eml`, or an Outlook `.msg`), and get a verdict (**Likely phishing**, **Suspicious**, or **No red flags found**) with the reasons behind it. The email is analysed in your browser and never leaves your device. Optional online checks look up only its domains, link addresses and file fingerprints.
 
 The signature feature is the **X-ray lens**: the email is drawn as it looked in your inbox, and a lens follows your cursor to show what's really underneath. You see the real sender address with the swapped character highlighted, where each button really goes, and the invisible tracking pixel.
 
@@ -84,6 +84,12 @@ Blocklists are matched by exact page, and also by whole host for sites that are 
 - Attachments are read as bytes and never run.
 - The page ships with a strict Content Security Policy (`default-src 'none'`, self-hosted fonts, no inline scripts).
 
+## Known limits
+
+- **Forged authentication results.** SPF, DKIM and DMARC are read from the topmost `Authentication-Results` header, the one the reader's own provider adds when the email arrives. Gmail, Outlook and Yahoo always add one. A mail server that adds none leaves only headers the sender wrote, and a sender can forge a "pass" there. No check inside the email can tell them apart: Gmail files its own result just below the line recording the email's arrival, which is exactly where a forged one lands, and a forger can copy the receiving server's public name.
+- **Links are never opened.** That keeps you safe, but a page that only turns malicious after a redirect chain, or only for some visitors, can't be seen. Blocklists and the link's own address are what's checked.
+- **Rich-text-only Outlook files.** A `.msg` is read through its stored plain-text and HTML bodies. The rare file that stores its body only as rich text (RTF) is checked on its headers and attachments alone.
+
 ## Development
 
 Requires Node 24+.
@@ -119,7 +125,7 @@ npx wrangler secret put VT_KEY        # VirusTotal, used for file fingerprints o
 | 0 | Repo, parser, sample set | ✅ |
 | 1 | Header checks: authentication, sender disguises, look-alike domains, Reply-To | ✅ |
 | 2 | Content checks: links, attachments, wording, scoring and explanations | ✅ |
-| 3 | Web app: X-ray lens, paste, drop and samples, help for finding the source, Analyst view | ✅ (Outlook `.msg` files not yet) |
+| 3 | Web app: X-ray lens, paste, drop and samples, help for finding the source, Analyst view, Outlook `.msg` files | ✅ |
 | 4 | Engine tuned on real phishing; online checks through the Worker (domain age, DNS, phishing feeds, file reputation) | ✅ |
 | 5 | Forward-to-check by email | |
 | 6 | Ship at `phish.abdullah1.dev` | ✅ Live |
