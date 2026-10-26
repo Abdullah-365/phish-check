@@ -5,6 +5,12 @@ import type { Content, Finding, Inline, Severity } from "./types.ts";
 export type WordingHits = Map<Group, { id: string; text: string }[]>;
 
 /**
+ * Every rule's phrases in one pattern, without the whole-word checks. It can match more than the
+ * rules do, never less, so text it doesn't match can't hold a rule's phrase.
+ */
+const ANY_PHRASE = new RegExp(RULES.map((rule) => `(?:${rule.phrases})`).join("|"), "iu");
+
+/**
  * Finds suspicious phrases and turns them into phrase inlines in place, so the
  * reading view can highlight them underneath the lens.
  */
@@ -20,6 +26,11 @@ export function markWording(content: Content): WordingHits {
       }
       // Match against a copy with look-alike letters swapped back, so "Vеrіfy" (Cyrillic е, і) still reads as "Verify".
       const probe = latinizeSameLength(inline.text);
+      // Most text holds no scam phrase at all; one combined pass rules that out before every rule scans it.
+      if (!ANY_PHRASE.test(probe)) {
+        out.push(inline);
+        continue;
+      }
       const matches = RULES.flatMap((rule) =>
         [...probe.matchAll(rule.pattern)].map((m) => ({ start: m.index!, end: m.index! + m[0].length, rule })),
       ).sort((a, b) => a.start - b.start || b.end - a.end);

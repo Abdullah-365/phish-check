@@ -81,7 +81,21 @@ export function readerAttachments(attachments: AttachmentInfo[]): AttachmentInfo
   return attachments.filter((a) => !(a.declaredType.startsWith("image/") && a.disposition !== "attachment"));
 }
 
+let latin1Decoder: TextDecoder | null | undefined;
+
+/**
+ * Bytes as text, one character per byte, so offsets in the text are offsets in the file. The
+ * native decoder is far faster; runtimes without single-byte encodings get the manual loop.
+ */
 const latin1 = (bytes: Uint8Array) => {
+  if (latin1Decoder === undefined) {
+    try {
+      latin1Decoder = new TextDecoder("latin1");
+    } catch {
+      latin1Decoder = null;
+    }
+  }
+  if (latin1Decoder) return latin1Decoder.decode(bytes);
   let out = "";
   for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return out;

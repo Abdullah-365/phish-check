@@ -31,11 +31,13 @@ export interface Rule {
   group: Group;
   label: string;
   pattern: RegExp;
+  /** The phrases alone, without the whole-word checks, for the combined pre-filter. */
+  phrases: string;
 }
 
 const word = (alternatives: string[]) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternatives.join("|")})(?![\\p{L}\\p{N}])`, "giu");
 
-const rule = (group: Group, label: string, alternatives: string[]): Rule => ({ group, label, pattern: word(alternatives) });
+const rule = (group: Group, label: string, alternatives: string[]): Rule => ({ group, label, pattern: word(alternatives), phrases: alternatives.join("|") });
 
 export const RULES: Rule[] = [
   rule("money", "Money request", [

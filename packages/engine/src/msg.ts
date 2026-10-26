@@ -28,6 +28,7 @@ interface Entry {
 }
 
 class CompoundFile {
+  private readonly bytes: Uint8Array;
   private readonly view: DataView;
   private readonly sectorSize: number;
   private readonly sectors: number;
@@ -37,7 +38,8 @@ class CompoundFile {
   private miniStream: Uint8Array = new Uint8Array(0);
   readonly entries: Entry[] = [];
 
-  constructor(private readonly bytes: Uint8Array) {
+  constructor(bytes: Uint8Array) {
+    this.bytes = bytes;
     this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const shift = this.u16(0x1e);
     if (shift !== 9 && shift !== 12) throw new Error("Unsupported sector size");
@@ -174,15 +176,13 @@ function decode(bytes: Uint8Array, label: string): string {
 
 /** The MAPI properties of one message: its own storage's streams plus a few fixed-size values. */
 class MessageProperties {
+  private readonly file: CompoundFile;
   private readonly streams = new Map<string, Entry>();
   private readonly fixed = new Map<number, DataView>();
 
-  constructor(
-    private readonly file: CompoundFile,
-    readonly storage: number,
-    /** The fixed-property stream starts with a header: 32 bytes for the top message, 24 for embedded ones. */
-    headerSize: number,
-  ) {
+  /** `headerSize`: the fixed-property stream's header, 32 bytes for the top message, 24 for an attached one and 8 for an attachment. */
+  constructor(file: CompoundFile, storage: number, headerSize: number) {
+    this.file = file;
     for (const entry of file.children(storage)) this.streams.set(entry.name.toUpperCase(), entry);
     const props = this.streams.get("__PROPERTIES_VERSION1.0");
     if (props) {

@@ -62,7 +62,7 @@ One TypeScript analysis engine is shared by the browser and the Worker:
 ```
 packages/engine        parse → reading view → detectors → score → plain-English report
 apps/web               Vite + React UI: intake, X-ray lens, report
-apps/worker            Cloudflare Worker: serves the app and /api/intel; email-in comes later
+apps/worker            Cloudflare Worker: serves the app, /api/intel, and forward-to-check by email
 samples/               synthetic test emails with expected verdicts and findings
 scripts/evaluate.mjs   accuracy against labelled corpora
 design/                the HTML mockups the UI was built from
@@ -73,6 +73,19 @@ The reading view is a style-free model of the email body. Links become inert tex
 Online checks run after the local verdict is on screen. The browser asks the Worker's `POST /api/intel` about at most 10 domains, 20 links and 10 file fingerprints, and the engine folds the answers in and re-scores. Domain age is measured to when the reader's provider received the email (its own Received header), not to the Date header, which the sender can backdate. The Worker caches answers, allows 30 checks a minute per visitor, stays within the free plan's 50 subrequests per check (blocklists first, then files, domains and per-link services), and reports any service that didn't answer instead of failing.
 
 Blocklists are matched by exact page, and also by whole host for sites that are dedicated to one owner. Shared platforms (big brands, mailbox providers, file-sharing sites, free hosting, shorteners) are matched by exact page only, so one bad file on Google Drive doesn't condemn every Drive link. VirusTotal counts a file as malware only when at least 3 engines flag it.
+
+## Forward-to-check by email
+
+Forward a suspicious email to **check@abdullah1.dev** and the verdict comes back as a reply: the headline, what was found, and what to do now. It's built for phones, where mail apps can't show an email's source.
+
+- **What it reads:** "Forward as attachment" (the original arrives intact, so it's checked fully), an attached `.eml` or `.msg` file, or a plain forward (only the quoted sender survives, so the reply says the check was partial). A message with no forwarded email gets instructions instead.
+- **What comes back:** the same engine and online checks as the website. Every address, link and filename taken from the checked email is defanged (`evil[.]example`), so nothing in the reply can be clicked by mistake. The only real link is to this site.
+- **Safety:** Cloudflare only lets the Worker reply to a sender whose message passed DMARC, so a spammer can't forge someone's address to send them replies. Bounces, auto-replies (`Auto-Submitted`), bulk mail and mailing lists get no answer, which prevents mail loops, and replies are themselves marked `Auto-Submitted: auto-replied`. Each sender gets at most 10 replies an hour, and forwards over 5 MB aren't read.
+- **Privacy:** the email is read, checked and answered in memory and never stored; Worker logs stay off.
+
+The handler is `email()` in `apps/worker/src/index.ts` (code in `email.ts`, reply text in `reply.ts`). To switch it on, the domain needs one Email Routing rule, set in the Cloudflare dashboard: **Email** → **Email Routing** → **Routing rules** → **Create address**, custom address `check`, action **Send to a Worker**, destination `phish-check`.
+
+**CPU time.** A forwarded email is analysed inside the Worker. On the free plan, Cloudflare gives each email 10 ms of CPU; a typical phishing email needs about 7 ms, but long or attachment-heavy ones need 20 ms or more, run out, and get no reply. The Workers Paid plan raises the limit to 30 seconds. The website's own checks run in the visitor's browser and aren't affected.
 
 ## Safety and privacy
 
@@ -127,5 +140,5 @@ npx wrangler secret put VT_KEY        # VirusTotal, used for file fingerprints o
 | 2 | Content checks: links, attachments, wording, scoring and explanations | ✅ |
 | 3 | Web app: X-ray lens, paste, drop and samples, help for finding the source, Analyst view, Outlook `.msg` files | ✅ |
 | 4 | Engine tuned on real phishing; online checks through the Worker (domain age, DNS, phishing feeds, file reputation) | ✅ |
-| 5 | Forward-to-check by email | |
+| 5 | Forward-to-check by email | ✅ Built (needs the Email Routing rule above) |
 | 6 | Ship at `phish.abdullah1.dev` | ✅ Live |

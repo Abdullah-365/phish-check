@@ -2,8 +2,10 @@
  * One Worker serves the whole tool:
  * - static web app (Cloudflare serves apps/web/dist before this code runs)
  * - /api/intel  online checks: domain age, DNS, phishing blocklists (keys stay here)
- * - email       forward-to-check handler (phase 5)
+ * - email       forward-to-check: emails sent to check@abdullah1.dev get the verdict back
  */
+import { readCapped } from "./body.ts";
+import { handleEmail } from "./email.ts";
 import { lookup, parseRequest, type IntelEnv } from "./intel.ts";
 
 export interface Env extends IntelEnv {
@@ -41,30 +43,12 @@ function forgetOldest(now: number): void {
   }
 }
 
-/** Reads the body up to `limit` bytes. Returns null as soon as it's bigger, without buffering the rest. */
+/** Reads the body up to `limit` bytes. Returns null when it's bigger. */
 async function readBody(request: Request, limit: number): Promise<string | null> {
   if (Number(request.headers.get("content-length") ?? 0) > limit) return null;
   if (!request.body) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(bytes);
+  const bytes = await readCapped(request.body, limit);
+  return bytes && new TextDecoder().decode(bytes);
 }
 
 export default {
@@ -93,6 +77,10 @@ export default {
     }
 
     return json({ error: "Not found" }, 404);
+  },
+
+  async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+    await handleEmail(message, env);
   },
 } satisfies ExportedHandler<Env>;
 

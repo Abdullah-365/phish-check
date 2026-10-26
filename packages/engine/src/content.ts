@@ -82,8 +82,11 @@ class Builder {
       if (this.styledWords.length < 3) this.styledWords.push(...styledWords(raw).slice(0, 3 - this.styledWords.length));
     }
     const text = raw.normalize("NFKC").replace(INVISIBLE, "");
-    for (const word of text.match(/[\p{L}\p{M}]{3,}/gu) ?? []) {
-      if (LATIN.test(word) && LOOKALIKE_SCRIPT.test(word) && this.mixedScript.size < 5) this.mixedScript.add(word);
+    // Splitting into words is only worth it when another alphabet appears at all.
+    if (this.mixedScript.size < 5 && LOOKALIKE_SCRIPT.test(text)) {
+      for (const word of text.match(/[\p{L}\p{M}]{3,}/gu) ?? []) {
+        if (LATIN.test(word) && LOOKALIKE_SCRIPT.test(word) && this.mixedScript.size < 5) this.mixedScript.add(word);
+      }
     }
     return text;
   }
@@ -129,7 +132,9 @@ const SELF_CLOSING = new Set(["p", "li", "td", "th", "tr", "dt", "dd", "option",
  */
 function limitNesting(html: string): string {
   // Each level needs its own tag, so short or tag-light HTML can't be too deep.
-  if ((html.match(/</g)?.length ?? 0) <= MAX_NESTING) return html;
+  let tags = 0;
+  for (let at = html.indexOf("<"); at >= 0 && tags <= MAX_NESTING; at = html.indexOf("<", at + 1)) tags++;
+  if (tags <= MAX_NESTING) return html;
   let depth = 0;
   return html.replace(/<(\/?)([a-z][a-z0-9-]*)\b[^<>]{0,4000}>/gi, (tag: string, close: string, raw: string) => {
     const name = raw.toLowerCase();
