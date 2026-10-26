@@ -124,11 +124,15 @@ const NOTICES = {
 
 export type Notice = keyof typeof NOTICES;
 
-export function noticeReply(notice: Notice, subject: string): ReplyContent {
+/** `seen` says what the message did carry, so the sender can tell why it wasn't recognised. */
+export function noticeReply(notice: Notice, subject: string, seen?: string): ReplyContent {
   const { title, body } = NOTICES[notice];
+  const detail = seen ? defang(seen) : null;
   return {
     subject: replySubject(subject),
-    text: `${title}\n\n${body}\n\n${FOOTER_TEXT}`,
-    html: wrap(`<p style="margin:0 0 8px;font-size:17px;font-weight:600">${escapeHtml(title)}</p><p style="margin:0">${escapeHtml(body)}</p>`),
+    text: `${title}\n\n${detail ? `${detail}\n\n` : ""}${body}\n\n${FOOTER_TEXT}`,
+    html: wrap(
+      `<p style="margin:0 0 8px;font-size:17px;font-weight:600">${escapeHtml(title)}</p>${detail ? `<p style="margin:0 0 8px">${escapeHtml(detail)}</p>` : ""}<p style="margin:0">${escapeHtml(body)}</p>`,
+    ),
   };
 }

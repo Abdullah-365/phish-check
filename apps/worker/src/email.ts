@@ -60,12 +60,19 @@ const EMAIL_FILE = /\.(eml|msg)$/i;
  * What to check in the forward: the original inside a "forward as attachment", an attached
  * .eml or .msg file, or the quoted original of a plain forward. Null when there's no original.
  */
-async function original(raw: Uint8Array): Promise<{ analysis: Analysis; email: ParsedEmail } | null> {
+async function original(raw: Uint8Array): Promise<{ analysis: Analysis; email: ParsedEmail } | { seen: string }> {
   const parsed = await parseEmail(raw);
   const file = parsed.embeddedMessages.length ? undefined : parsed.attachments.find((a) => EMAIL_FILE.test(a.filename ?? ""));
   const email = file ? await parseEmail(file.content) : parsed;
   const analysis = await analyzeParsed(email);
-  return file || analysis.forwarded ? { analysis, email } : null;
+  return file || analysis.forwarded ? { analysis, email } : { seen: contents(parsed) };
+}
+
+/** What a message carried, in a sentence, for when none of it is a forwarded email. */
+function contents(parsed: ParsedEmail): string {
+  const files = parsed.attachments.map((a) => `${a.filename || "an unnamed file"} (${a.declaredType}, ${Math.max(1, Math.round(a.size / 1024))} KB)`);
+  if (!files.length) return "Your message had no attachments.";
+  return `Your message had ${files.length === 1 ? "one attachment" : `${files.length} attachments`}, ${files.join(", ")}, but ${files.length === 1 ? "it isn't" : "none of them is"} an email.`;
 }
 
 export async function handleEmail(message: ForwardableEmailMessage, env: IntelEnv): Promise<void> {
@@ -96,7 +103,11 @@ export async function handleEmail(message: ForwardableEmailMessage, env: IntelEn
   } catch {
     return reply(noticeReply("unreadable", subject));
   }
-  if (!found) return reply(noticeReply("not-a-forward", subject));
+  if ("seen" in found) {
+    // TEMPORARY: what arrived, for diagnosing the first live forwarding test. Remove once it passes.
+    const arrived = new TextDecoder().decode(raw.subarray(0, 2500));
+    return reply(noticeReply("not-a-forward", subject, `${found.seen}\n\n[debug] ${raw.length} bytes arrived; they start:\n${arrived}`));
+  }
 
   let { analysis } = found;
   try {
