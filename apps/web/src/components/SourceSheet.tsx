@@ -60,8 +60,9 @@ const GUIDES: Guide[] = [
     id: "phone",
     label: "On a phone",
     steps: [
-      "Phone mail apps can't show an email's source. Open the same email on a computer instead.",
-      <>Coming soon: forward it to <code>check@abdullah1.dev</code> and get the verdict back by email.</>,
+      <>Forward the email to <code>check@abdullah1.dev</code>. The verdict comes back by email within a minute.</>,
+      <>A plain forward loses the original's headers, so the sender can't be fully checked. On a computer, <kbd>Forward as attachment</kbd> gives the full check.</>,
+      "No reply? Look in Spam: a reply about a phish can look like one.",
     ],
   },
 ];

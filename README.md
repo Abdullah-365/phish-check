@@ -87,7 +87,10 @@ Forward a suspicious email to **check@abdullah1.dev** and the verdict comes back
 - **Safety:** Cloudflare only lets the Worker reply to a sender whose message passed DMARC, so a spammer can't forge someone's address to send them replies. Bounces, auto-replies (`Auto-Submitted`), bulk mail and mailing lists get no answer, which prevents mail loops, and replies are themselves marked `Auto-Submitted: auto-replied`. Each sender gets at most 10 replies an hour, and forwards over 5 MB aren't read.
 - **Privacy:** the email is read, checked and answered in memory and never stored; Worker logs stay off.
 
-The handler is `email()` in `apps/worker/src/index.ts` (code in `email.ts`, reply text in `reply.ts`). To switch it on, the domain needs one Email Routing rule, set in the Cloudflare dashboard: **Email** → **Email Routing** → **Routing rules** → **Create address**, custom address `check`, action **Send to a Worker**, destination `phish-check`.
+The handler is `email()` in `apps/worker/src/index.ts` (code in `email.ts`, reply text in `reply.ts`). It runs because of one Email Routing rule, set in the Cloudflare dashboard: **Email** → **Email Routing** → **Routing rules** → **Create address**, custom address `check`, action **Send to a Worker**, destination `phish-check`. Live tests from Gmail got replies within 2 seconds, DKIM-signed for `abdullah1.dev`. Two things the tests showed:
+
+- A reply that warns about a phish can itself land in Spam, since it has to talk about the phish.
+- A file attached through Gmail's API (not its web app) is sent as an unnamed HTML file without the original's headers, so it can't be checked. The reply then says which attachments arrived, so the sender can tell why. Gmail's own **Forward as attachment** sends the whole original.
 
 **CPU time.** A forwarded email is analysed inside the Worker. On the free plan, Cloudflare gives each email 10 ms of CPU; a typical phishing email needs about 7 ms, but long or attachment-heavy ones need 20 ms or more, run out, and get no reply. The Workers Paid plan raises the limit to 30 seconds. The website's own checks run in the visitor's browser and aren't affected.
 
@@ -145,5 +148,5 @@ npx wrangler secret put VT_KEY        # VirusTotal, used for file fingerprints o
 | 2 | Content checks: links, attachments, wording, scoring and explanations | ✅ |
 | 3 | Web app: X-ray lens, paste, drop and samples, help for finding the source, Analyst view, Outlook `.msg` files | ✅ |
 | 4 | Engine tuned on real phishing; online checks through the Worker (domain age, DNS, phishing feeds, file reputation) | ✅ |
-| 5 | Forward-to-check by email | ✅ Built (needs the Email Routing rule above) |
+| 5 | Forward-to-check by email | ✅ Live at check@abdullah1.dev |
 | 6 | Ship at `phish.abdullah1.dev` | ✅ Live |
